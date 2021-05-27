@@ -1,0 +1,24 @@
+# permissions for end users to edit wavefrontalerts.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: wavefrontalert-editor-role
+rules:
+- apiGroups:
+  - alertmanager.keikoproj.io
+  resources:
+  - wavefrontalerts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - alertmanager.keikoproj.io
+  resources:
+  - wavefrontalerts/status
+  verbs:
+  - get

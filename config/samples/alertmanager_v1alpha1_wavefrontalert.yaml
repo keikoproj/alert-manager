@@ -1,0 +1,7 @@
+apiVersion: alertmanager.keikoproj.io/v1alpha1
+kind: WavefrontAlert
+metadata:
+  name: wavefrontalert-sample
+spec:
+  # Add fields here
+  foo: bar

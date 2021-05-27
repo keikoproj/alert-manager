@@ -1,0 +1,20 @@
+# permissions for end users to view wavefrontalerts.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: wavefrontalert-viewer-role
+rules:
+- apiGroups:
+  - alertmanager.keikoproj.io
+  resources:
+  - wavefrontalerts
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - alertmanager.keikoproj.io
+  resources:
+  - wavefrontalerts/status
+  verbs:
+  - get

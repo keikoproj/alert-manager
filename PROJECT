@@ -1,0 +1,25 @@
+domain: keikoproj.io
+layout:
+- go.kubebuilder.io/v3
+projectName: alert-manager
+repo: github.com/keikoproj/alert-manager
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: keikoproj.io
+  group: alertmanager
+  kind: WavefrontAlert
+  path: github.com/keikoproj/alert-manager/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: keikoproj.io
+  group: alertmanager
+  kind: AlertsConfig
+  path: github.com/keikoproj/alert-manager/api/v1alpha1
+  version: v1alpha1
+version: "3"
