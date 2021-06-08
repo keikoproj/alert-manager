@@ -25,17 +25,101 @@ import (
 
 // WavefrontAlertSpec defines the desired state of WavefrontAlert
 type WavefrontAlertSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of WavefrontAlert. Edit wavefrontalert_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// AlertType represents the type of the Alert in Wavefront. Defaults to CLASSIC alert
+	// +optional
+	AlertType AlertType `json:"alertType,omitempty"`
+
+	//Name of the alert to be created in Wavefront
+	// +required
+	AlertName string `json:"alertName"`
+
+	//A conditional expression that defines the threshold for the Classic alert. For CLASSIC (or default alerts) condition must be provided
+	// +required
+	Condition string `json:"condition"`
+
+	//For classic alert type, mention the severity of the incident. This will be ignored for threshold type of alerts
+	// +required
+	Severity string `json:"severity"`
+
+	//Minutes where alert is in "true" state continuously to trigger an alert
+	// +required
+	Minutes *int32 `json:"minutes"`
+
+	//Minutes after the alert got back to "false" state to resolve the incident
+	// +required
+	ResolveAfter *int32 `json:"resolveAfterMinutes"`
+
+	//Any additional information, such as a link to a run book.
+	// +optional
+	AdditionalInformation string `json:"additionalInformation,omitempty"`
+
+	//Tags assigned to the alert.
+	// +optional
+	Tags []string `json:"tags,omitempty"`
+
+	//Describe the functionality of the alert in simple words. This is just for CR and not used it to send it to wavefront
+	Description string `json:"description,omitempty"`
+
+	//Specify a display expression to get more details when the alert changes state
+	// +required
+	DisplayExpression string `json:"displayexpression"`
+
+	//exportedParams can be used when AlertsConfig CRD used to provide config to WavefrontAlert CRD at the runtime for multiple alerts
+	//when the exportedParams length is not empty, Alert will not be created when Alert CR is created but rather alerts will be created when AlertsConfig CR created.
+	// +optional
+	ExportedParams []string `json:"exportedParams,omitempty"`
 }
+
+// AlertType represents the type of the Alert in Wavefront. Defaults to CLASSIC alert
+// +kubebuilder:default=CLASSIC
+// +kubebuilder:validation:Enum=CLASSIC;THRESHOLD
+type AlertType string
+
+const (
+	// Wavefront Classic Alert. Defaults to Classic Alert if none specified. For more info about CLASSIC Alert type:https://docs.wavefront.com/alerts.html
+	ClassicAlert AlertType = "CLASSIC"
+
+	// Wavefront Threshold Alert. For more info about THRESHOLD alert type: https://docs.wavefront.com/alerts.html
+	ThresholdAlert AlertType = "THRESHOLD"
+)
+
+type State string
+
+const (
+	Ready    State = "Ready"
+	Error    State = "Error"
+	Creating State = "Creating"
+	Updating State = "Updating"
+	Deleting State = "Deleting"
+)
 
 // WavefrontAlertStatus defines the observed state of WavefrontAlert
 type WavefrontAlertStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	//State of the resource
+	State State `json:"state,omitempty"`
+	//RetryCount in case of error
+	RetryCount int `json:"retryCount"`
+	//ErrorDescription in case of error
+	ErrorDescription string `json:"errorDescription,omitempty"`
+	//Total Number of Namespaces in the managed cluster
+	NamespaceCount int `json:"namespaceCount"`
+	//Checksum of the exportedParams if exists
+	ExportParamsChecksum string `json:"exportParamsChecksum,omitempty"`
+	//Alert details
+	Alerts []Alert `json:"alerts,omitempty"`
+}
+
+type Alert struct {
+	ID                     string                 `json:"id"`
+	Name                   string                 `json:"alertName"`
+	Link                   string                 `json:"link,omitempty"`
+	AssociatedAlertsConfig AssociatedAlertsConfig `json:"associatedAlertsConfig,omitempty"`
+}
+
+type AssociatedAlertsConfig struct {
+	CR string `json:"CR,omitempty"`
 }
 
 //+kubebuilder:object:root=true

@@ -17,7 +17,11 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
+	"github.com/keikoproj/alert-manager/controllers/common"
+	"github.com/keikoproj/alert-manager/pkg/k8s"
+	"github.com/keikoproj/alert-manager/pkg/log"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -63,7 +67,8 @@ func main() {
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	log.New()
+	log := log.Logger(context.Background(), "main", "setup")
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
@@ -78,36 +83,45 @@ func main() {
 		os.Exit(1)
 	}
 
+	k8sSelfClient := k8s.NewK8sSelfClientDoOrDie()
+	recorder := k8sSelfClient.SetUpEventHandler(context.Background())
+
 	if err = (&controllers.WavefrontAlertReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("WavefrontAlert"),
-		Scheme: mgr.GetScheme(),
+		Client:        mgr.GetClient(),
+		Log:           log.WithValues("controllers", "WavefrontAlert"),
+		Scheme:        mgr.GetScheme(),
+		Recorder:      recorder,
+		K8sSelfClient: k8sSelfClient,
+		CommonClient: &common.Client{
+			Client:   mgr.GetClient(),
+			Recorder: recorder,
+		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "WavefrontAlert")
 		os.Exit(1)
 	}
 	if err = (&controllers.AlertsConfigReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("AlertsConfig"),
+		Log:    log.WithValues("controllers", "AlertsConfig"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "AlertsConfig")
+		log.Error(err, "unable to create controller", "controller", "AlertsConfig")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up health check")
+		log.Error(err, "unable to set up health check")
 		os.Exit(1)
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up ready check")
+		log.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		setupLog.Error(err, "problem running manager")
+		log.Error(err, "problem running manager")
 		os.Exit(1)
 	}
 }
