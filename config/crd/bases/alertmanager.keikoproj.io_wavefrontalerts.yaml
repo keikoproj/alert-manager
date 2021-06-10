@@ -102,6 +102,7 @@ spec:
             description: WavefrontAlertStatus defines the observed state of WavefrontAlert
             properties:
               alerts:
+                description: Alert details
                 items:
                   properties:
                     alertName:
@@ -120,11 +121,24 @@ spec:
                   - id
                   type: object
                 type: array
-              exportParamsChecksum:
-                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
-                  of cluster Important: Run "make" to regenerate code after modifying
-                  this file'
+              errorDescription:
+                description: ErrorDescription in case of error
                 type: string
+              exportParamsChecksum:
+                description: Checksum of the exportedParams if exists
+                type: string
+              namespaceCount:
+                description: Total Number of Namespaces in the managed cluster
+                type: integer
+              retryCount:
+                description: RetryCount in case of error
+                type: integer
+              state:
+                description: State of the resource
+                type: string
+            required:
+            - namespaceCount
+            - retryCount
             type: object
         type: object
     served: true

@@ -1,18 +1,17 @@
-name: push
+name: release
 
 on:
   push:
     branches: [ master ]
     tags:
       - 'v*'
-  pull_request:
-    branches: [ master ]
 
 jobs:
   push:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "🐧 This job is from ${{ github.repository_owner }} repo owner"
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
 
       - name: Set up Docker Buildx
         id: buildx
@@ -40,7 +39,6 @@ jobs:
         uses: crazy-max/ghaction-docker-meta@v1
         with:
           images: ${{ github.repository_owner }}/alert-manager
-      - run: echo "🐧 This job is now running on a ${{ steps.docker_meta.outputs.tags }} server hosted by GitHub!"
       -
         name: Build and push
         uses: docker/build-push-action@v2
