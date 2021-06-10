@@ -1,0 +1,69 @@
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - alertmanager.keikoproj.io
+  resources:
+  - alertsconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - alertmanager.keikoproj.io
+  resources:
+  - alertsconfigs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - alertmanager.keikoproj.io
+  resources:
+  - alertsconfigs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - alertmanager.keikoproj.io
+  resources:
+  - wavefrontalerts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - alertmanager.keikoproj.io
+  resources:
+  - wavefrontalerts/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - alertmanager.keikoproj.io
+  resources:
+  - wavefrontalerts/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - get
+  - list
+  - watch
