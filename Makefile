@@ -1,8 +1,13 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG ?= alert-manager:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
+
+# Tools required to run the full suite of tests properly
+OSNAME           ?= $(shell uname -s | tr A-Z a-z)
+KUBEBUILDER_VER  ?= 3.0.0
+KUBEBUILDER_ARCH ?= amd64
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -106,3 +111,11 @@ GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
+
+
+.PHONY: kubebuilder
+kubebuilder:
+	@echo "Downloading and installing Kubebuilder - this requires sudo privileges"
+	curl -fsSL -O "https://github.com/kubernetes-sigs/kubebuilder/releases/download/v$(KUBEBUILDER_VER)/kubebuilder_$(OSNAME)_$(KUBEBUILDER_ARCH)"
+	chmod +x kubebuilder_$(OSNAME)_$(KUBEBUILDER_ARCH) && sudo mv kubebuilder_$(OSNAME)_$(KUBEBUILDER_ARCH) /usr/local/bin/
+
