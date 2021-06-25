@@ -23,6 +23,7 @@ import (
 	"github.com/keikoproj/alert-manager/internal/utils"
 	"github.com/keikoproj/alert-manager/pkg/k8s"
 	"github.com/keikoproj/alert-manager/pkg/log"
+	"github.com/keikoproj/alert-manager/pkg/wavefront"
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/record"
 
@@ -52,6 +53,7 @@ type WavefrontAlertReconciler struct {
 	K8sSelfClient *k8s.Client
 	Recorder      record.EventRecorder
 	CommonClient  *controllercommon.Client
+	wavefrontClient wavefront.Interface
 }
 
 //+kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create
@@ -109,6 +111,7 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if !proceed {
 		// do nothing
+		log.Info("exportedParams checksum changed. Not proceeding further..")
 		return ctrl.Result{}, nil
 	}
 
@@ -154,7 +157,6 @@ func (r *WavefrontAlertReconciler) HandleDelete(ctx context.Context, wfAlert *al
 	r.CommonClient.UpdateMeta(ctx, wfAlert)
 	log.Info("Successfully deleted wfAlert")
 	r.Recorder.Event(wfAlert, v1.EventTypeNormal, "Deleted", "Successfully deleted WavefrontAlert")
-
 	return nil
 }
 

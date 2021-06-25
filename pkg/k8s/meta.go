@@ -9,6 +9,8 @@ import (
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 //SetUpEventHandler sets up event handler with client-go recorder instead of creating events directly
@@ -49,3 +51,19 @@ func (c *Client) GetConfigMap(ctx context.Context, ns string, name string) *v1.C
 //	log.V(1).Info("Successfully got config map informer")
 //	return cmInformer
 //}
+
+
+//GetK8sSecret function retrieves the secrets
+func (c *Client) GetK8sSecret(ctx context.Context, name string, ns string) (*corev1.Secret, error) {
+	log := log.Logger(ctx, "pkg.k8s", "meta", "GetK8sSecret")
+	log = log.WithValues("secretName", name, "namespace", ns)
+	log.V(1).Info("Retrieving secret")
+	secret, err := c.cl.CoreV1().Secrets(ns).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		log.Error(err, "unable to retrieve secret", "name", name, "namespace", ns)
+		return nil, err
+	}
+	log.Info("secret found", "secret_name", secret.Name)
+
+	return secret, nil
+}
