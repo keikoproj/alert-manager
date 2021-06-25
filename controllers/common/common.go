@@ -4,11 +4,15 @@ import (
 	"context"
 	alertmanagerv1alpha1 "github.com/keikoproj/alert-manager/api/v1alpha1"
 	"github.com/keikoproj/alert-manager/pkg/log"
+	"k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/record"
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"time"
+
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 type StatusUpdatePredicate struct {
@@ -60,24 +64,24 @@ func (r *Client) UpdateMeta(ctx context.Context, object client.Object) {
 }
 
 //UpdateStatus function updates the status based on the process step
-//func (r *Client) UpdateStatus(ctx context.Context, obj runtime.Object, state managerv1alpha1.State, requeueTime ...float64) (ctrl.Result, error) {
-//	log := log.Logger(ctx, "controllers.common", "common", "UpdateStatus")
-//
-//	if err := r.Status().Update(ctx, obj); err != nil {
-//		log.Error(err, "Unable to update status", "status", state)
-//		r.Recorder.Event(obj, v1.EventTypeWarning, string(managerv1alpha1.Error), "Unable to create/update status due to error "+err.Error())
-//		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-//	}
-//
-//	if state != managerv1alpha1.Error {
-//		return ctrl.Result{}, nil
-//	}
-//
-//	//if wait time is specified, requeue it after provided time
-//	if len(requeueTime) == 0 {
-//		requeueTime[0] = 0
-//	}
-//
-//	log.Info("Requeue time", "time", requeueTime[0])
-//	return ctrl.Result{RequeueAfter: time.Duration(requeueTime[0]) * time.Millisecond}, nil
-//}
+func (r *Client) UpdateStatus(ctx context.Context, obj client.Object, state alertmanagerv1alpha1.State, requeueTime ...float64) (ctrl.Result, error) {
+	log := log.Logger(ctx, "controllers.common", "common", "UpdateStatus")
+
+	if err := r.Status().Update(ctx, obj); err != nil {
+		log.Error(err, "Unable to update status", "status", state)
+		r.Recorder.Event(obj, v1.EventTypeWarning, string(alertmanagerv1alpha1.Error), "Unable to create/update status due to error "+err.Error())
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+
+	if state != alertmanagerv1alpha1.Error {
+		return ctrl.Result{}, nil
+	}
+
+	//if wait time is specified, requeue it after provided time
+	if len(requeueTime) == 0 {
+		requeueTime[0] = 0
+	}
+
+	log.Info("Requeue time", "time", requeueTime[0])
+	return ctrl.Result{RequeueAfter: time.Duration(requeueTime[0]) * time.Millisecond}, nil
+}

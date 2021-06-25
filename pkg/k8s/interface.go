@@ -10,4 +10,5 @@ import (
 type Interface interface {
 	SetUpEventHandler(ctx context.Context) record.EventRecorder
 	GetConfigMap(ctx context.Context, ns string, name string) *v1.ConfigMap
+	GetK8sSecret(ctx context.Context, name string, ns string) (*v1.Secret, error)
 }

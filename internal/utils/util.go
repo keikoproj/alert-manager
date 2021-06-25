@@ -10,7 +10,7 @@ import (
 
 //ExportParamsChecksum function calculates checksum if exportParams is not empty
 func ExportParamsChecksum(ctx context.Context, exportedParams []string) (bool, string) {
-	log := log.Logger(ctx, "utils", "util", "ExportParamsChecksum")
+	log := log.Logger(ctx, "internal.utils", "util", "ExportParamsChecksum")
 	if len(exportedParams) == 0 {
 		return false, ""
 	}
@@ -20,7 +20,7 @@ func ExportParamsChecksum(ctx context.Context, exportedParams []string) (bool, s
 
 //calculateChecksum function calculates checksum for the given string
 func calculateChecksum(ctx context.Context, input string) string {
-	log := log.Logger(ctx, "utils", "util", "calculateChecksum")
+	log := log.Logger(ctx, "internal.utils", "util", "calculateChecksum")
 	log.V(4).Info("calculating checksum", "input", input)
 	hash := md5.Sum([]byte(input))
 	return hex.EncodeToString(hash[:])
