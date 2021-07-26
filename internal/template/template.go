@@ -7,7 +7,6 @@ import (
 	"html/template"
 )
 
-
 //ProcessTemplate process the go lang template byb substituting with the provided values
 func ProcessTemplate(ctx context.Context, input string, val map[string]interface{}) (string, error) {
 	log := log.Logger(ctx, "internal.template", "ProcessTemplate")

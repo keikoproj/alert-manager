@@ -4,6 +4,7 @@
 resources:
 - bases/alertmanager.keikoproj.io_wavefrontalerts.yaml
 - bases/alertmanager.keikoproj.io_alertsconfigs.yaml
+- bases/alertmanager.keikoproj.io_configmap.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

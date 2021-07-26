@@ -66,7 +66,6 @@ func (r *Client) UpdateMeta(ctx context.Context, object client.Object) {
 //UpdateStatus function updates the status based on the process step
 func (r *Client) UpdateStatus(ctx context.Context, obj client.Object, state alertmanagerv1alpha1.State, requeueTime ...float64) (ctrl.Result, error) {
 	log := log.Logger(ctx, "controllers.common", "common", "UpdateStatus")
-
 	if err := r.Status().Update(ctx, obj); err != nil {
 		log.Error(err, "Unable to update status", "status", state)
 		r.Recorder.Event(obj, v1.EventTypeWarning, string(alertmanagerv1alpha1.Error), "Unable to create/update status due to error "+err.Error())

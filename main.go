@@ -20,8 +20,10 @@ import (
 	"context"
 	"flag"
 	"github.com/keikoproj/alert-manager/controllers/common"
+	"github.com/keikoproj/alert-manager/internal/config"
 	"github.com/keikoproj/alert-manager/pkg/k8s"
 	"github.com/keikoproj/alert-manager/pkg/log"
+	"github.com/keikoproj/alert-manager/pkg/wavefront"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -35,8 +37,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	wf "github.com/WavefrontHQ/go-wavefront-management-api"
 	alertmanagerv1alpha1 "github.com/keikoproj/alert-manager/api/v1alpha1"
 	"github.com/keikoproj/alert-manager/controllers"
+	configcommon "github.com/keikoproj/alert-manager/internal/config/common"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -56,7 +60,7 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8082", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
@@ -68,7 +72,8 @@ func main() {
 	flag.Parse()
 
 	log.New()
-	log := log.Logger(context.Background(), "main", "setup")
+	ctx := context.Background()
+	log := log.Logger(ctx, "main", "setup")
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
@@ -84,14 +89,33 @@ func main() {
 	}
 
 	k8sSelfClient := k8s.NewK8sSelfClientDoOrDie()
-	recorder := k8sSelfClient.SetUpEventHandler(context.Background())
+	recorder := k8sSelfClient.SetUpEventHandler(ctx)
+
+	// Get the config map
+	// retrieve k8s secret
+	// Call for wavefront new client
+	wfTokenSecret, err := k8sSelfClient.GetK8sSecret(ctx, config.Props.WavefrontAPITokenSecretName(), configcommon.AlertManagerNamespaceName)
+	if err != nil {
+		log.Error(err, "unable to get wavefront api token secret")
+		os.Exit(1)
+	}
+	wfToken, ok := wfTokenSecret.Data[config.Props.WavefrontAPITokenSecretName()]
+	if !ok {
+		log.Error(err, "unable to get wavefront api token from secret")
+		os.Exit(1)
+	}
+	wavefront.ApiToken = string(wfToken)
+	wfClient, err := wavefront.NewClient(ctx, &wf.Config{
+		Address: config.Props.WavefrontAPIUrl(),
+		Token:   string(wfToken),
+	})
 
 	if err = (&controllers.WavefrontAlertReconciler{
-		Client:        mgr.GetClient(),
-		Log:           log.WithValues("controllers", "WavefrontAlert"),
-		Scheme:        mgr.GetScheme(),
-		Recorder:      recorder,
-		K8sSelfClient: k8sSelfClient,
+		Client:          mgr.GetClient(),
+		Log:             log.WithValues("controllers", "WavefrontAlert"),
+		Scheme:          mgr.GetScheme(),
+		Recorder:        recorder,
+		WavefrontClient: wfClient,
 		CommonClient: &common.Client{
 			Client:   mgr.GetClient(),
 			Recorder: recorder,

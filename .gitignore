@@ -9,6 +9,9 @@ bin
 testbin/*
 vendor/
 
+mocks/
+gomock*/
+
 # Test binary, build with `go test -c`
 *.test
 
