@@ -118,6 +118,13 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	data, err := json.Marshal(wfAlert.Spec)
 	if err != nil {
 		log.Error(err, "unable to convert wavefront spec into string")
+		//This is probably rare scenario
+		state := alertmanagerv1alpha1.Error
+		//This is to avoid overwriting the other fields in status
+		wfAlert.Status.RetryCount = wfAlert.Status.RetryCount + 1
+		wfAlert.Status.ErrorDescription = err.Error()
+		wfAlert.Status.State = state
+		return r.CommonClient.UpdateStatus(ctx, &wfAlert, state, errRequeueTime)
 	}
 	lastChangeChecksum := utils.CalculateChecksum(ctx, string(data))
 	status.LastChangeChecksum = lastChangeChecksum
@@ -145,12 +152,12 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		r.Recorder.Event(&wfAlert, v1.EventTypeWarning, err.Error(), "alert input request validation failed")
 		state := alertmanagerv1alpha1.Error
 		log.Error(err, "alert input request validation failed")
-		wfAlert.Status = alertmanagerv1alpha1.WavefrontAlertStatus{
-			RetryCount:         wfAlert.Status.RetryCount + 1,
-			ErrorDescription:   err.Error(),
-			State:              state,
-			LastChangeChecksum: lastChangeChecksum,
-		}
+		//This is to avoid overwriting the other fields in status
+		wfAlert.Status.RetryCount = wfAlert.Status.RetryCount + 1
+		wfAlert.Status.ErrorDescription = err.Error()
+		wfAlert.Status.State = state
+		//This might get tricky- if user rollsback the change- Keep it open until enough testing is done
+		wfAlert.Status.LastChangeChecksum = lastChangeChecksum
 		return r.CommonClient.UpdateStatus(ctx, &wfAlert, state, errRequeueTime)
 	}
 

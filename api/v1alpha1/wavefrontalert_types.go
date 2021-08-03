@@ -55,7 +55,7 @@ type WavefrontAlertSpec struct {
 	// to notify when the alert status changes.
 	// Multiple target types can be in the list. Alert target format: ({email}|pd:{pd_key}
 	// +optional
-	Target string `json:"target"`
+	Target string `json:"target,omitempty"`
 
 	//Any additional information, such as a link to a run book.
 	// +optional
