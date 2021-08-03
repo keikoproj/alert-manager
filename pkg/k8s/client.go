@@ -11,7 +11,7 @@ import (
 )
 
 type Client struct {
-	cl            kubernetes.Interface
+	Cl            kubernetes.Interface
 	runtimeClient client.Client
 }
 
@@ -45,12 +45,12 @@ func NewK8sSelfClientDoOrDie() *Client {
 	}
 
 	k8sCl := &Client{
-		cl:            cl,
+		Cl:            cl,
 		runtimeClient: dClient,
 	}
 	return k8sCl
 }
 
 func (c *Client) ClientInterface() kubernetes.Interface {
-	return c.cl
+	return c.Cl
 }

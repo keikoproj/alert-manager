@@ -1,6 +1,6 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= alert-manager:latest
+IMG ?= docker.intuit.com/dev/patterns/iks-manager/service/alert-manager:nmogulla
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 
@@ -8,6 +8,8 @@ CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 OSNAME           ?= $(shell uname -s | tr A-Z a-z)
 KUBEBUILDER_VER  ?= 3.0.0
 KUBEBUILDER_ARCH ?= amd64
+
+LOCAL  ?= true
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -54,15 +56,22 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
+mock:
+	go get -u github.com/golang/mock/mockgen
+	@echo "mockgen is in progess"
+	@for pkg in $(shell go list ./...) ; do \
+		go generate ./... ;\
+	done
+
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
-test: manifests generate fmt vet ## Run tests.
+test: mock manifests generate fmt vet ## Run tests.
 	mkdir -p ${ENVTEST_ASSETS_DIR}
 	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.2/hack/setup-envtest.sh
-	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out
+	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); LOCAL=$(LOCAL) go test ./... -coverprofile cover.out
 
 ##@ Build
 
-build: generate fmt vet ## Build manager binary.
+build: mock generate fmt vet ## Build manager binary.
 	go build -o bin/manager main.go
 
 run: manifests generate fmt vet ## Run a controller from your host.

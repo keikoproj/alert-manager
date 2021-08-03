@@ -58,7 +58,7 @@ spec:
                 description: Describe the functionality of the alert in simple words.
                   This is just for CR and not used it to send it to wavefront
                 type: string
-              displayexpression:
+              displayExpression:
                 description: Specify a display expression to get more details when
                   the alert changes state
                 type: string
@@ -90,10 +90,16 @@ spec:
                 items:
                   type: string
                 type: array
+              target:
+                description: 'Target (Optional) A comma-separated list of the email
+                  address or integration endpoint (such as PagerDuty or web hook)
+                  to notify when the alert status changes. Multiple target types can
+                  be in the list. Alert target format: ({email}|pd:{pd_key}'
+                type: string
             required:
             - alertName
             - condition
-            - displayexpression
+            - displayExpression
             - minutes
             - resolveAfterMinutes
             - severity
@@ -114,7 +120,11 @@ spec:
                       type: object
                     id:
                       type: string
+                    lastChangeChecksum:
+                      type: string
                     link:
+                      type: string
+                    state:
                       type: string
                   required:
                   - alertName
@@ -126,6 +136,9 @@ spec:
                 type: string
               exportParamsChecksum:
                 description: Checksum of the exportedParams if exists
+                type: string
+              lastChangeChecksum:
+                description: This represents the checksum of the spec
                 type: string
               namespaceCount:
                 description: Total Number of Namespaces in the managed cluster

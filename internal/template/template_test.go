@@ -12,9 +12,9 @@ import (
 var _ = Describe("Template", func() {
 	Describe("Test ProcessTemplate", func() {
 		wfAlert := v1alpha1.WavefrontAlert{
-			Spec:v1alpha1.WavefrontAlertSpec{
-				AlertName: "TestAlert1",
-				Condition: "Something",
+			Spec: v1alpha1.WavefrontAlertSpec{
+				AlertName:   "TestAlert1",
+				Condition:   "Something",
 				Description: "description",
 			},
 		}
@@ -34,7 +34,7 @@ var _ = Describe("Template", func() {
 				wfAlert1 := wfAlertX
 				tempBytes, _ := json.Marshal(wfAlert1.Spec)
 				resp, _ := template.ProcessTemplate(context.Background(), string(tempBytes), map[string]interface{}{
-					"exportedParam1" : "golang",
+					"exportedParam1": "golang",
 				})
 				wfAlert1.Spec.Condition = "some golang variable"
 				expBytes, _ := json.Marshal(wfAlert1.Spec)
@@ -44,17 +44,14 @@ var _ = Describe("Template", func() {
 				wfAlert2 := wfAlertX
 				tempBytes, _ := json.Marshal(wfAlert2.Spec)
 				resp, _ := template.ProcessTemplate(context.Background(), string(tempBytes), map[string]interface{}{
-					"exportedParam1" : "golang",
-					"exportedParam2" : "golang234234",
+					"exportedParam1": "golang",
+					"exportedParam2": "golang234234",
 				})
 				wfAlert2.Spec.Condition = "some golang variable"
 				expBytes, _ := json.Marshal(wfAlert2.Spec)
 				Expect(resp).To(Equal(string(expBytes)))
 			})
 		})
-
-
-
 
 	})
 })

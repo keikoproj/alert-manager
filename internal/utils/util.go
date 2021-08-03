@@ -18,6 +18,11 @@ func ExportParamsChecksum(ctx context.Context, exportedParams []string) (bool, s
 	return true, calculateChecksum(ctx, strings.Join(exportedParams, ""))
 }
 
+//CalculateChecksum is an exported function
+func CalculateChecksum(ctx context.Context, input string) string {
+	return calculateChecksum(ctx, input)
+}
+
 //calculateChecksum function calculates checksum for the given string
 func calculateChecksum(ctx context.Context, input string) string {
 	log := log.Logger(ctx, "internal.utils", "util", "calculateChecksum")
@@ -45,4 +50,20 @@ func RemoveString(slice []string, s string) (result []string) {
 		result = append(result, item)
 	}
 	return
+}
+
+func TrimSpaces(d interface{}) string {
+	if s, ok := d.(string); ok {
+		return strings.TrimSpace(s)
+	}
+
+	return ""
+}
+
+func TrimSpacesMap(m map[string]string) map[string]string {
+	trimmed := map[string]string{}
+	for key, v := range m {
+		trimmed[key] = TrimSpaces(v)
+	}
+	return trimmed
 }

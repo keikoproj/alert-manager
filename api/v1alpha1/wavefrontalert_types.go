@@ -51,6 +51,12 @@ type WavefrontAlertSpec struct {
 	// +required
 	ResolveAfter *int32 `json:"resolveAfterMinutes"`
 
+	//Target (Optional) A comma-separated list of the email address or integration endpoint (such as PagerDuty or web hook)
+	// to notify when the alert status changes.
+	// Multiple target types can be in the list. Alert target format: ({email}|pd:{pd_key}
+	// +optional
+	Target string `json:"target,omitempty"`
+
 	//Any additional information, such as a link to a run book.
 	// +optional
 	AdditionalInformation string `json:"additionalInformation,omitempty"`
@@ -64,7 +70,7 @@ type WavefrontAlertSpec struct {
 
 	//Specify a display expression to get more details when the alert changes state
 	// +required
-	DisplayExpression string `json:"displayexpression"`
+	DisplayExpression string `json:"displayExpression"`
 
 	//exportedParams can be used when AlertsConfig CRD used to provide config to WavefrontAlert CRD at the runtime for multiple alerts
 	//when the exportedParams length is not empty, Alert will not be created when Alert CR is created but rather alerts will be created when AlertsConfig CR created.
@@ -88,11 +94,14 @@ const (
 type State string
 
 const (
-	Ready    State = "Ready"
-	Error    State = "Error"
-	Creating State = "Creating"
-	Updating State = "Updating"
-	Deleting State = "Deleting"
+	Ready               State = "Ready"
+	Error               State = "Error"
+	MalformedSpec       State = "MalformedSpec"
+	ReadyToBeUsed       State = "ReadyToBeUsed"
+	ClientExceededLimit State = "ClientExceededLimit"
+	Creating            State = "Creating"
+	Updating            State = "Updating"
+	Deleting            State = "Deleting"
 )
 
 // WavefrontAlertStatus defines the observed state of WavefrontAlert
@@ -107,6 +116,8 @@ type WavefrontAlertStatus struct {
 	NamespaceCount int `json:"namespaceCount"`
 	//Checksum of the exportedParams if exists
 	ExportParamsChecksum string `json:"exportParamsChecksum,omitempty"`
+	//This represents the checksum of the spec
+	LastChangeChecksum string `json:"lastChangeChecksum,omitempty"`
 	//Alert details
 	Alerts []Alert `json:"alerts,omitempty"`
 }
@@ -115,6 +126,8 @@ type Alert struct {
 	ID                     string                 `json:"id"`
 	Name                   string                 `json:"alertName"`
 	Link                   string                 `json:"link,omitempty"`
+	State                  State                  `json:"state,omitempty"`
+	LastChangeChecksum     string                 `json:"lastChangeChecksum,omitempty"`
 	AssociatedAlertsConfig AssociatedAlertsConfig `json:"associatedAlertsConfig,omitempty"`
 }
 
