@@ -244,7 +244,7 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			respAlert.LastChangeChecksum = a.LastChangeChecksum
 			// if even one of the child got failed, make parent status as error
 			status.State = state
-			status.RetryCount = wfAlert.Status.RetryCount
+			status.RetryCount = wfAlert.Status.RetryCount +1
 		}
 		log.Info("alert ids before and after", "before", a.ID, "after", alert.ID)
 		respAlert.State = alertmanagerv1alpha1.Ready
@@ -256,7 +256,7 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 	wfAlert.Status = status
 
-	return r.CommonClient.UpdateStatus(ctx, &wfAlert, status.State)
+	return r.CommonClient.UpdateStatus(ctx, &wfAlert, status.State, errRequeueTime)
 }
 
 //HandleDelete function handles the deleting wavefront alerts
