@@ -22,7 +22,7 @@ var _ = Describe("Template", func() {
 			It("Should not error out", func() {
 				wfAlert0 := wfAlert
 				tempBytes, _ := json.Marshal(wfAlert0.Spec)
-				resp, _ := template.ProcessTemplate(context.Background(), string(tempBytes), make(map[string]interface{}))
+				resp, _ := template.ProcessTemplate(context.Background(), string(tempBytes), make(map[string]string))
 				Expect(resp).To(Equal(string(tempBytes)))
 			})
 		})
@@ -33,7 +33,7 @@ var _ = Describe("Template", func() {
 			It("with variable passed and Should not error out", func() {
 				wfAlert1 := wfAlertX
 				tempBytes, _ := json.Marshal(wfAlert1.Spec)
-				resp, _ := template.ProcessTemplate(context.Background(), string(tempBytes), map[string]interface{}{
+				resp, _ := template.ProcessTemplate(context.Background(), string(tempBytes), map[string]string{
 					"exportedParam1": "golang",
 				})
 				wfAlert1.Spec.Condition = "some golang variable"
@@ -43,7 +43,7 @@ var _ = Describe("Template", func() {
 			It("with extra variables passed and Should NOT error out", func() {
 				wfAlert2 := wfAlertX
 				tempBytes, _ := json.Marshal(wfAlert2.Spec)
-				resp, _ := template.ProcessTemplate(context.Background(), string(tempBytes), map[string]interface{}{
+				resp, _ := template.ProcessTemplate(context.Background(), string(tempBytes), map[string]string{
 					"exportedParam1": "golang",
 					"exportedParam2": "golang234234",
 				})

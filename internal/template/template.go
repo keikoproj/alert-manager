@@ -8,7 +8,7 @@ import (
 )
 
 //ProcessTemplate process the go lang template byb substituting with the provided values
-func ProcessTemplate(ctx context.Context, input string, val map[string]interface{}) (string, error) {
+func ProcessTemplate(ctx context.Context, input string, val map[string]string) (string, error) {
 	log := log.Logger(ctx, "internal.template", "ProcessTemplate")
 	log.V(4).Info("processing template", "input", input)
 
@@ -23,6 +23,6 @@ func ProcessTemplate(ctx context.Context, input string, val map[string]interface
 		log.Error(err, "unable to execute template")
 		return "", err
 	}
-	log.Info("Template executed successfully")
+	log.Info("Template executed successfully", "temp", buf.String())
 	return buf.String(), nil
 }

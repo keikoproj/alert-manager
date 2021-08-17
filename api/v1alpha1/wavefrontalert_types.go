@@ -112,8 +112,6 @@ type WavefrontAlertStatus struct {
 	RetryCount int `json:"retryCount"`
 	//ErrorDescription in case of error
 	ErrorDescription string `json:"errorDescription,omitempty"`
-	//Total Number of Namespaces in the managed cluster
-	NamespaceCount int `json:"namespaceCount"`
 	//Checksum of the exportedParams if exists
 	ExportParamsChecksum string `json:"exportParamsChecksum,omitempty"`
 	//This represents the checksum of the spec
@@ -122,6 +120,7 @@ type WavefrontAlertStatus struct {
 	Alerts []Alert `json:"alerts,omitempty"`
 }
 
+//Alert provides the detail about individual alert
 type Alert struct {
 	ID                     string                 `json:"id"`
 	Name                   string                 `json:"alertName"`

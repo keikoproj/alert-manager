@@ -25,7 +25,6 @@ import (
 	"github.com/keikoproj/alert-manager/pkg/log"
 	"github.com/keikoproj/alert-manager/pkg/wavefront"
 	"os"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -124,10 +123,17 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "WavefrontAlert")
 		os.Exit(1)
 	}
+
 	if err = (&controllers.AlertsConfigReconciler{
-		Client: mgr.GetClient(),
-		Log:    log.WithValues("controllers", "AlertsConfig"),
-		Scheme: mgr.GetScheme(),
+		Client:          mgr.GetClient(),
+		Log:             log.WithValues("controllers", "AlertsConfig"),
+		Scheme:          mgr.GetScheme(),
+		Recorder:        recorder,
+		WavefrontClient: wfClient,
+		CommonClient: &common.Client{
+			Client:   mgr.GetClient(),
+			Recorder: recorder,
+		},
 	}).SetupWithManager(mgr); err != nil {
 		log.Error(err, "unable to create controller", "controller", "AlertsConfig")
 		os.Exit(1)

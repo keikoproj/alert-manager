@@ -1,0 +1,20 @@
+apiVersion: alertmanager.keikoproj.io/v1alpha1
+kind: WavefrontAlert
+metadata:
+  name: wavefrontalert-sample3
+spec:
+  # Add fields here
+  alertType: CLASSIC
+  alertName: test-alert4
+  condition: ts({{ .foo}})
+  displayExpression: ts({{ .zzz }})
+  minutes: 50
+  resolveAfterMinutes: 5
+  severity: "{{.bar}}"
+  exportedParams:
+    - foo
+    - bar
+    - zzz
+  tags:
+    - test-alert
+    - something-weird
