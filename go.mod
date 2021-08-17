@@ -10,7 +10,8 @@ require (
 	github.com/keikoproj/manager v0.0.0-20200414065656-d0d64621fb96
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2
-	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
+	golang.org/x/mod v0.5.0 // indirect
+	golang.org/x/sys v0.0.0-20210816183151-1e6c022a8912 // indirect
 	golang.org/x/tools v0.1.5 // indirect
 	k8s.io/api v0.19.2
 	k8s.io/apimachinery v0.19.2

@@ -244,7 +244,7 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			respAlert.LastChangeChecksum = a.LastChangeChecksum
 			// if even one of the child got failed, make parent status as error
 			status.State = state
-			status.RetryCount = wfAlert.Status.RetryCount +1
+			status.RetryCount = wfAlert.Status.RetryCount + 1
 		}
 		log.Info("alert ids before and after", "before", a.ID, "after", alert.ID)
 		respAlert.State = alertmanagerv1alpha1.Ready
