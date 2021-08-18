@@ -8,7 +8,7 @@ const (
 	AlertManagerNamespaceName = "alert-manager-system"
 
 	// AlertManagerConfigMapName is the config map name for alert-manager namespace
-	AlertManagerConfigMapName = "alertmanager-v1alpha1-configmap"
+	AlertManagerConfigMapName = "alert-manager-configmap"
 
 	//WavefrontAPITokenK8sSecretName is the secret name where API token is stored in k8s namespace
 	WavefrontAPITokenK8sSecretName = "wavefront.api.token.secret.name"
