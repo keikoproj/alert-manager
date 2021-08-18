@@ -117,7 +117,7 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	for _, config := range alertsConfig.Spec.Alerts {
 		// Calculate checksum and compare it with the status checksum
 		exist, reqChecksum := utils.CalculateAlertConfigChecksum(ctx, config)
-		// if request and status checksum matches then there is change in this specific alert config
+		// if request and status checksum matches then there is NO change in this specific alert config
 		if exist && alertHashMap[config.AlertName].LastChangeChecksum == reqChecksum {
 			log.Info("checksum is equal. skipping")
 			//skip it
@@ -132,26 +132,26 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			log.Error(err, "unable to get the wavefront alert details for the requested name", "wfAlertName", config.AlertName)
 
 			// Update the status and retry it
-			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, config.AlertName, err)
+			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, config.AlertName, alertmanagerv1alpha1.Error, err)
 		}
 		wfAlertBytes, err := json.Marshal(wfAlert.Spec)
 		if err != nil {
 			// update the status and retry it
-			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, config.AlertName, err)
+			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, config.AlertName, alertmanagerv1alpha1.Error, err)
 		}
 
 		// execute Golang Template
 		wfAlertTemplate, err := template.ProcessTemplate(ctx, string(wfAlertBytes), config.Params)
 		if err != nil {
 			//update the status and retry it
-			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, config.AlertName, err)
+			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, config.AlertName, alertmanagerv1alpha1.Error, err)
 		}
 		log.Info("Template process is successful", "here", wfAlertTemplate)
 
 		// Unmarshal back to wavefront alert
 		if err := json.Unmarshal([]byte(wfAlertTemplate), &wfAlert.Spec); err != nil {
 			// update the wfAlert status and retry it
-			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, config.AlertName, err)
+			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, config.AlertName, alertmanagerv1alpha1.Error, err)
 		}
 		// Convert to Alert
 		var alert wf.Alert
@@ -159,7 +159,7 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		if err := wavefront.ConvertAlertCRToWavefrontRequest(ctx, wfAlert.Spec, &alert); err != nil {
 			errMsg := "unable to convert the wavefront spec to Alert API request. will not be retried"
 			log.Error(err, errMsg)
-			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, config.AlertName, err)
+			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, config.AlertName, alertmanagerv1alpha1.Error, err)
 		}
 
 		// Create/Update Alert
@@ -170,11 +170,11 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				state := alertmanagerv1alpha1.Error
 				if strings.Contains(err.Error(), "Exceeded limit setting") {
 					// For ex: error is "Exceeded limit setting: 100 alerts allowed per customer"
-					state = alertmanagerv1alpha1.Error
+					state = alertmanagerv1alpha1.ClientExceededLimit
 				}
 				log.Error(err, "unable to create the alert")
 
-				return r.CommonClient.UpdateStatus(ctx, &alertsConfig, state, errRequeueTime)
+				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, config.AlertName, state, err)
 			}
 			alertStatus := alertmanagerv1alpha1.AlertStatus{
 				ID:                 *alert.ID,
@@ -202,11 +202,11 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				state := alertmanagerv1alpha1.Error
 				if strings.Contains(err.Error(), "Exceeded limit setting") {
 					// For ex: error is "Exceeded limit setting: 100 alerts allowed per customer"
-					state = alertmanagerv1alpha1.Error
+					state = alertmanagerv1alpha1.ClientExceededLimit
 				}
 				log.Error(err, "unable to create the alert")
 
-				return r.CommonClient.UpdateStatus(ctx, &alertsConfig, state, errRequeueTime)
+				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, config.AlertName, state, err)
 			}
 
 			alertStatus := alertHashMap[config.AlertName]
@@ -228,17 +228,18 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 }
 
 //PatchIndividualAlertsConfigError function is a utility function to patch the error status
-func (r *AlertsConfigReconciler) PatchIndividualAlertsConfigError(ctx context.Context, alertsConfig *alertmanagerv1alpha1.AlertsConfig, alertName string, err error, requeueTime ...float64) (ctrl.Result, error) {
+// We use status patch instead of status update to avoid any overwrite between two threads when alertsConfig CR has multiple alert configs
+func (r *AlertsConfigReconciler) PatchIndividualAlertsConfigError(ctx context.Context, alertsConfig *alertmanagerv1alpha1.AlertsConfig, alertName string, state alertmanagerv1alpha1.State, err error, requeueTime ...float64) (ctrl.Result, error) {
 	log := log.Logger(ctx, "controllers", "alertsconfig_controller", "PatchIndividualAlertsConfigError")
 	log = log.WithValues("alertsConfig_cr", alertsConfig.Name, "namespace", alertsConfig.Namespace)
 	alertStatus := alertsConfig.Status.Alerts[alertName]
-	alertStatus.State = alertmanagerv1alpha1.Error
+	alertStatus.State = state
 	alertStatusBytes, _ := json.Marshal(alertStatus)
 	retryCount := alertsConfig.Status.RetryCount + 1
 	log.Error(err, "error occured in alerts config for alert name", "alertName", alertName)
 	r.Recorder.Event(alertsConfig, v1.EventTypeWarning, err.Error(), fmt.Sprintf("error occured in alerts config for alert name %s", alertName))
 
-	patch := []byte(fmt.Sprintf("{\"status\":{\"state\": \"%s\", \"alertsCount\": %d, \"retryCount\": %d, \"alertStatus\":{\"%s\":%s}}}", alertmanagerv1alpha1.Error, alertsConfig.Status.AlertsCount, retryCount, alertName, string(alertStatusBytes)))
+	patch := []byte(fmt.Sprintf("{\"status\":{\"state\": \"%s\", \"alertsCount\": %d, \"retryCount\": %d, \"alertStatus\":{\"%s\":%s}}}", state, alertsConfig.Status.AlertsCount, retryCount, alertName, string(alertStatusBytes)))
 	return r.CommonClient.PatchStatus(ctx, alertsConfig, client.RawPatch(types.MergePatchType, patch), alertmanagerv1alpha1.Error, 30)
 }
 
