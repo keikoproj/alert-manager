@@ -25,17 +25,61 @@ import (
 
 // AlertsConfigSpec defines the desired state of AlertsConfig
 type AlertsConfigSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	//GlobalGVK- This is a global GVK config but user can overwrite it if an AlertsConfig supports multiple type of Alerts in future.
+	//This CRD must be installed in the cluster otherwise AlertsConfig will go into error state
+	GlobalGVK GVK `json:"globalGVK,omitempty"`
+	//Alerts- Provide each individual alert config
+	Alerts []Config `json:"alerts,omitempty"`
+}
 
-	// Foo is an example field of AlertsConfig. Edit alertsconfig_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+//GVK struct represents the alert type and can be used as a global as well as in individual alert section
+type GVK struct {
+	//Group - CRD Group name which this config/s is related to
+	Group string `json:"group,omitempty"`
+	//Version - CRD Version name which this config/s is related to
+	Version string `json:"version,omitempty"`
+	//Kind - CRD Kind name which this config/s is related to
+	Kind string `json:"kind,omitempty"`
+}
+
+//Config section provides the AlertsConfig for each individual alert
+type Config struct {
+	//GVK can be used to provide CRD group, version and kind- If there is a global GVK already provided this will overwrite it
+	// +optional
+	GVK GVK `json:"gvk,omitempty"`
+	//AlertName- Name of the alert (or CR name for the respective CRD)
+	// +required
+	AlertName string `json:"alertName"`
+	//Params section can be used to provide exportParams key values
+	Params OrderedMap `json:"params,omitempty"`
 }
 
 // AlertsConfigStatus defines the observed state of AlertsConfig
 type AlertsConfigStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	//State of the resource
+	State State `json:"state,omitempty"`
+	//RetryCount in case of error
+	RetryCount int `json:"retryCount"`
+	//AlertsCount provides total number of alerts configured
+	AlertsCount int `json:"alertsCount"`
+	//ErrorDescription in case of error
+	ErrorDescription string `json:"errorDescription,omitempty"`
+	//Alerts provides status of each individual alerts
+	Alerts map[string]AlertStatus `json:"alertStatus,omitempty"`
+}
+
+//AlertStatus
+type AlertStatus struct {
+	ID                 string          `json:"id"`
+	Name               string          `json:"alertName"`
+	Link               string          `json:"link,omitempty"`
+	State              State           `json:"state,omitempty"`
+	LastChangeChecksum string          `json:"lastChangeChecksum,omitempty"`
+	AssociatedAlert    AssociatedAlert `json:"associatedAlert,omitempty"`
+}
+
+type AssociatedAlert struct {
+	CR string `json:"CR,omitempty"`
 }
 
 //+kubebuilder:object:root=true

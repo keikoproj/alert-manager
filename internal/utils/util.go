@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"encoding/json"
+	"github.com/keikoproj/alert-manager/api/v1alpha1"
 	"github.com/keikoproj/alert-manager/pkg/log"
 	"strings"
 )
@@ -16,6 +18,17 @@ func ExportParamsChecksum(ctx context.Context, exportedParams []string) (bool, s
 	}
 	log.V(4).Info("exportedParams are not empty")
 	return true, calculateChecksum(ctx, strings.Join(exportedParams, ""))
+}
+
+//CalculateAlertConfigChecksum function calculates hash value for Alert Config
+func CalculateAlertConfigChecksum(ctx context.Context, input v1alpha1.Config) (bool, string) {
+	log := log.Logger(ctx, "internal.utils", "util", "CalculateAlertConfigChecksum")
+	jsonData, err := json.Marshal(input)
+	if err != nil {
+		log.Error(err, "Unable to marshal the input request")
+		return false, ""
+	}
+	return true, calculateChecksum(ctx, string(jsonData))
 }
 
 //CalculateChecksum is an exported function

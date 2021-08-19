@@ -33,7 +33,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"strings"
 
 	wf "github.com/WavefrontHQ/go-wavefront-management-api"
@@ -137,14 +136,24 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if length > 0 {
 		// Check for exportedParams checksum
 		exist, reqChecksum := utils.ExportParamsChecksum(ctx, wfAlert.Spec.ExportedParams)
+		// if status doesn't have checksum- it means its very first request
 		if exist && &wfAlert.Status.ExportParamsChecksum != nil {
 			if reqChecksum != wfAlert.Status.ExportParamsChecksum {
 				proceed = false
 				status.State = alertmanagerv1alpha1.ReadyToBeUsed
-				status.ExportParamsChecksum = reqChecksum
+				//TODO: Think about this again
+				status.ExportParamsChecksum = wfAlert.Status.ExportParamsChecksum
 			}
 		}
 	}
+
+	if !proceed {
+		// do nothing
+		log.Info("exportedParams checksum changed. Not proceeding further..")
+		wfAlert.Status = status
+		return ctrl.Result{}, r.Status().Update(ctx, &wfAlert)
+	}
+
 	// Validate the alert request
 	var alert wf.Alert
 	r.convertAlertCR(ctx, &wfAlert, &alert)
@@ -159,13 +168,6 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		//This might get tricky- if user rollsback the change- Keep it open until enough testing is done
 		wfAlert.Status.LastChangeChecksum = lastChangeChecksum
 		return r.CommonClient.UpdateStatus(ctx, &wfAlert, state, errRequeueTime)
-	}
-
-	if !proceed {
-		// do nothing
-		log.Info("exportedParams checksum changed. Not proceeding further..")
-		wfAlert.Status = status
-		return ctrl.Result{}, r.Status().Update(ctx, &wfAlert)
 	}
 
 	// so simple validation is done so lets Handle reconcile
@@ -311,6 +313,6 @@ func (r *WavefrontAlertReconciler) convertAlertCR(ctx context.Context, wfAlert *
 func (r *WavefrontAlertReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&alertmanagerv1alpha1.WavefrontAlert{}).
-		WithEventFilter(predicate.GenerationChangedPredicate{}).
+		WithEventFilter(controllercommon.StatusUpdatePredicate{}).
 		Complete(r)
 }

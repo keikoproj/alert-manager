@@ -48,7 +48,6 @@ var _ = Describe("WavefrontalertController", func() {
 					Minutes:           &minutes,
 					ResolveAfter:      &resolveAfterMinutes,
 					Tags:              []string{"foo", "bar"},
-					ExportedParams:    []string{"foo", "bar"},
 				},
 			}
 			Expect(k8sClient.Create(ctx, alert)).Should(Succeed())
@@ -77,8 +76,19 @@ var _ = Describe("WavefrontalertController", func() {
 			By("updating the alert by adding severity")
 
 			f.Spec.Severity = "warn"
+			f.Spec.ExportedParams = []string{"foo", "bar"}
 
 			Expect(k8sClient.Update(context.Background(), f)).Should(Succeed())
+			//mockWavefront.EXPECT().CreateAlert(gomock.Any(), gomock.Any()).Return(nil)
+
+			// We'll need to retry getting this newly created Alert, given that creation may not immediately happen.
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, alertLookupKey, createdAlert)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
 			fetchedUpdated := &v1alpha1.WavefrontAlert{}
 			Eventually(func() v1alpha1.State {
 				k8sClient.Get(context.Background(), alertLookupKey, fetchedUpdated)

@@ -36,13 +36,107 @@ spec:
           spec:
             description: AlertsConfigSpec defines the desired state of AlertsConfig
             properties:
-              foo:
-                description: Foo is an example field of AlertsConfig. Edit alertsconfig_types.go
-                  to remove/update
-                type: string
+              alerts:
+                description: Alerts- Provide each individual alert config
+                items:
+                  description: Config section provides the AlertsConfig for each individual
+                    alert
+                  properties:
+                    alertName:
+                      description: AlertName- Name of the alert (or CR name for the
+                        respective CRD)
+                      type: string
+                    gvk:
+                      description: GVK can be used to provide CRD group, version and
+                        kind- If there is a global GVK already provided this will
+                        overwrite it
+                      properties:
+                        group:
+                          description: Group - CRD Group name which this config/s
+                            is related to
+                          type: string
+                        kind:
+                          description: Kind - CRD Kind name which this config/s is
+                            related to
+                          type: string
+                        version:
+                          description: Version - CRD Version name which this config/s
+                            is related to
+                          type: string
+                      type: object
+                    params:
+                      additionalProperties:
+                        type: string
+                      description: Params section can be used to provide exportParams
+                        key values
+                      type: object
+                  required:
+                  - alertName
+                  type: object
+                type: array
+              globalGVK:
+                description: GlobalGVK- This is a global GVK config but user can overwrite
+                  it if an AlertsConfig supports multiple type of Alerts in future.
+                  This CRD must be installed in the cluster otherwise AlertsConfig
+                  will go into error state
+                properties:
+                  group:
+                    description: Group - CRD Group name which this config/s is related
+                      to
+                    type: string
+                  kind:
+                    description: Kind - CRD Kind name which this config/s is related
+                      to
+                    type: string
+                  version:
+                    description: Version - CRD Version name which this config/s is
+                      related to
+                    type: string
+                type: object
             type: object
           status:
             description: AlertsConfigStatus defines the observed state of AlertsConfig
+            properties:
+              alertStatus:
+                additionalProperties:
+                  description: AlertStatus
+                  properties:
+                    alertName:
+                      type: string
+                    associatedAlert:
+                      properties:
+                        CR:
+                          type: string
+                      type: object
+                    id:
+                      type: string
+                    lastChangeChecksum:
+                      type: string
+                    link:
+                      type: string
+                    state:
+                      type: string
+                  required:
+                  - alertName
+                  - id
+                  type: object
+                description: Alerts provides status of each individual alerts
+                type: object
+              alertsCount:
+                description: AlertsCount provides total number of alerts configured
+                type: integer
+              errorDescription:
+                description: ErrorDescription in case of error
+                type: string
+              retryCount:
+                description: RetryCount in case of error
+                type: integer
+              state:
+                description: State of the resource
+                type: string
+            required:
+            - alertsCount
+            - retryCount
             type: object
         type: object
     served: true

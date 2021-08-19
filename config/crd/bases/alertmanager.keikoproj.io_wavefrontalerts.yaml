@@ -110,6 +110,7 @@ spec:
               alerts:
                 description: Alert details
                 items:
+                  description: Alert provides the detail about individual alert
                   properties:
                     alertName:
                       type: string
@@ -140,9 +141,6 @@ spec:
               lastChangeChecksum:
                 description: This represents the checksum of the spec
                 type: string
-              namespaceCount:
-                description: Total Number of Namespaces in the managed cluster
-                type: integer
               retryCount:
                 description: RetryCount in case of error
                 type: integer
@@ -150,7 +148,6 @@ spec:
                 description: State of the resource
                 type: string
             required:
-            - namespaceCount
             - retryCount
             type: object
         type: object

@@ -1,7 +1,7 @@
 apiVersion: alertmanager.keikoproj.io/v1alpha1
 kind: AlertsConfig
 metadata:
-  name: alertsconfig-sample
+  name: alertsconfig-sample2
 spec:
   # Add fields here
     globalGVK:
@@ -12,9 +12,4 @@ spec:
       - alertName: wavefrontalert-sample2
         params:
           foo: status.health
-          bar: warn
-      - alertName: wavefrontalert-sample3
-        params:
-          foo: status.health
           bar: severe
-          zzz: status.health

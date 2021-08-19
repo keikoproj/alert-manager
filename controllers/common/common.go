@@ -4,6 +4,7 @@ import (
 	"context"
 	alertmanagerv1alpha1 "github.com/keikoproj/alert-manager/api/v1alpha1"
 	"github.com/keikoproj/alert-manager/pkg/log"
+	"github.com/keikoproj/alert-manager/pkg/wavefront"
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/record"
 	"reflect"
@@ -12,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"time"
 
+	wf "github.com/WavefrontHQ/go-wavefront-management-api"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -61,11 +63,13 @@ func (r *Client) UpdateMeta(ctx context.Context, object client.Object) {
 		log.Error(err, "Unable to update object metadata (finalizer)")
 		panic(err)
 	}
+	log.Info("successfully updated the meta")
 }
 
 //UpdateStatus function updates the status based on the process step
 func (r *Client) UpdateStatus(ctx context.Context, obj client.Object, state alertmanagerv1alpha1.State, requeueTime ...float64) (ctrl.Result, error) {
 	log := log.Logger(ctx, "controllers.common", "common", "UpdateStatus")
+
 	if err := r.Status().Update(ctx, obj); err != nil {
 		log.Error(err, "Unable to update status", "status", state)
 		r.Recorder.Event(obj, v1.EventTypeWarning, string(alertmanagerv1alpha1.Error), "Unable to create/update status due to error "+err.Error())
@@ -83,4 +87,45 @@ func (r *Client) UpdateStatus(ctx context.Context, obj client.Object, state aler
 
 	log.Info("Requeue time", "time", requeueTime[0])
 	return ctrl.Result{RequeueAfter: time.Duration(requeueTime[0]) * time.Millisecond}, nil
+}
+
+//PatchStatus function patches the status based on the process step
+func (r *Client) PatchStatus(ctx context.Context, obj client.Object, patch client.Patch, state alertmanagerv1alpha1.State, requeueTime ...float64) (ctrl.Result, error) {
+	log := log.Logger(ctx, "controllers.common", "common", "UpdateStatus")
+
+	if err := r.Status().Patch(ctx, obj, patch); err != nil {
+		log.Error(err, "Unable to patch the status", "status", state)
+		r.Recorder.Event(obj, v1.EventTypeWarning, string(alertmanagerv1alpha1.Error), "Unable to patch status due to error "+err.Error())
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+
+	if state != alertmanagerv1alpha1.Error {
+		return ctrl.Result{}, nil
+	}
+
+	//if wait time is specified, requeue it after provided time
+	if len(requeueTime) == 0 {
+		requeueTime[0] = 0
+	}
+
+	log.Info("Requeue time", "time", requeueTime[0])
+	return ctrl.Result{RequeueAfter: time.Duration(requeueTime[0]) * time.Millisecond}, nil
+}
+
+//convertAlertCR converts alert CR to wf.Alert
+func (r *Client) ConvertAlertCR(ctx context.Context, wfAlert *alertmanagerv1alpha1.WavefrontAlert, alert *wf.Alert) {
+	log := log.Logger(ctx, "controllers", "wavefrontalert_controller", "convertAlertCR")
+	//log = log.WithValues("wavefrontalert_cr", wfAlert.Name, "namespace", wfAlert.Namespace)
+	if err := wavefront.ConvertAlertCRToWavefrontRequest(ctx, wfAlert.Spec, alert); err != nil {
+		errMsg := "unable to convert the wavefront spec to Alert API request. will not be retried"
+		log.Error(err, errMsg)
+		r.Recorder.Event(wfAlert, v1.EventTypeWarning, "MalformedSpec", errMsg)
+		wfAlert.Status = alertmanagerv1alpha1.WavefrontAlertStatus{
+			RetryCount:       wfAlert.Status.RetryCount + 1,
+			ErrorDescription: errMsg,
+			State:            alertmanagerv1alpha1.MalformedSpec,
+		}
+		// There is no use of requeue in this case
+		r.UpdateStatus(ctx, wfAlert, alertmanagerv1alpha1.MalformedSpec)
+	}
 }
