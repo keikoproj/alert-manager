@@ -248,7 +248,7 @@ func (r *AlertsConfigReconciler) HandleIndividalAlertConfigRemoval(ctx context.C
 
 //DeleteIndividualAlert function deletes individual alert and also patches the status on both wavefront alert and also alerts config status
 func (r *AlertsConfigReconciler) DeleteIndividualAlert(ctx context.Context, alertName string, alertStatus alertmanagerv1alpha1.AlertStatus, namespace string) error {
-	log := log.Logger(ctx, "controllers", "alertsconfig_controller", "GetProcessedWFAlert")
+	log := log.Logger(ctx, "controllers", "alertsconfig_controller", "DeleteIndividualAlert")
 	log = log.WithValues("alertsConfig_cr", alertName)
 
 	if alertStatus.ID != "" {
