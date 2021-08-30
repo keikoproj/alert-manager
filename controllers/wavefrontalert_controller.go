@@ -208,7 +208,6 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return r.CommonClient.UpdateStatus(ctx, &wfAlert, state, errRequeueTime)
 		}
 
-		//status.State = alertmanagerv1alpha1.Ready
 		alertResponse := alertmanagerv1alpha1.AlertStatus{
 			ID:                 *alert.ID,
 			Name:               alert.Name,
@@ -250,9 +249,9 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			wfAlert.Status.RetryCount = wfAlert.Status.RetryCount + 1
 		}
 		log.Info("alert ids before and after", "before", a.ID, "after", alert.ID)
-		respAlert.State = alertmanagerv1alpha1.Ready
+		respAlert.State = state
 		//TODO: Figure out a better way to handle this in future when we have multiple
-		wfAlert.Status.State = alertmanagerv1alpha1.Ready
+		wfAlert.Status.State = state
 		currStatus[respAlert.Name] = respAlert
 	}
 

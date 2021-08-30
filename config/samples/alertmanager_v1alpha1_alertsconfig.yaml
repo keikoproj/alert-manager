@@ -13,4 +13,3 @@ spec:
         params:
           foo: status.health
           bar: severe
-          zzz: status.health

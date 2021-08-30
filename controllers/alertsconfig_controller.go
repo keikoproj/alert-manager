@@ -175,6 +175,7 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 			alertID := alertHashMap[alertName].ID
 			alert.ID = &alertID
+			//TODO: Move this to common so it can be used for both wavefront and alerts config
 			//Update use case
 			if err := r.WavefrontClient.UpdateAlert(ctx, &alert); err != nil {
 				r.Recorder.Event(&alertsConfig, v1.EventTypeWarning, err.Error(), "unable to update the alert")
@@ -197,20 +198,21 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			}
 			log.Info("alert successfully got updated", "alertID", alert.ID)
 		}
-
-		// Update the Alert status and also Config Status
-		// No diff
-		// Continue
-
 	}
 
 	// Now - lets see if there is any config is removed compared to the status
 	// If there is any, we need to make a call to delete the alert
+	return r.HandleIndividalAlertConfigRemoval(ctx, req.NamespacedName)
+}
 
+//HandleIndividalAlertConfigRemoval function handles if there is any config got removed from the spec, if so- delete that alert in wavefront and also update the status
+func (r *AlertsConfigReconciler) HandleIndividalAlertConfigRemoval(ctx context.Context, namespacedName types.NamespacedName) (ctrl.Result, error) {
+	log := log.Logger(ctx, "controllers", "alertsconfig_controller", "HandleIndividalAlertConfigRemoval")
+	log = log.WithValues("alertsConfig_cr", namespacedName)
 	// Get the alerts config again
 
 	var updatedAlertsConfig alertmanagerv1alpha1.AlertsConfig
-	if err := r.Get(ctx, req.NamespacedName, &updatedAlertsConfig); err != nil {
+	if err := r.Get(ctx, namespacedName, &updatedAlertsConfig); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	tempStatusConfig := updatedAlertsConfig.Status.AlertsStatus
@@ -224,6 +226,7 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			// Lets delete that then
 			if err := r.DeleteIndividualAlert(ctx, updatedAlertsConfig.Name, status, updatedAlertsConfig.Namespace); err != nil {
 				//Ignore if errors since we can consider it as already deleted
+				log.Error(err, "unable to delete the alert, assuming alerts doesn't exist anymore- proceeding further")
 			}
 			toBeDeleted = append(toBeDeleted, key)
 		} else {
@@ -236,9 +239,10 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	for _, key := range toBeDeleted {
 		delete(tempStatusConfig, key)
 	}
-
+	// update the count
 	updatedAlertsConfig.Status.AlertsCount = len(updatedAlertsConfig.Spec.Alerts)
 	updatedAlertsConfig.Status.AlertsStatus = tempStatusConfig
+	// update the status
 	return r.CommonClient.UpdateStatus(ctx, &updatedAlertsConfig, tempState, errRequeueTime)
 }
 

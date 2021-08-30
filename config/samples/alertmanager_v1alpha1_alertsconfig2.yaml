@@ -9,7 +9,8 @@ spec:
       version: v1alpha1
       kind: WavefrontAlert
     alerts:
-      wavefrontalert-sample2:
+      wavefrontalert-sample3:
         params:
           foo: status.health
           bar: severe
+          zzz: status.health
