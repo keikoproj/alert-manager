@@ -2,10 +2,14 @@ package common
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	alertmanagerv1alpha1 "github.com/keikoproj/alert-manager/api/v1alpha1"
+	"github.com/keikoproj/alert-manager/internal/template"
 	"github.com/keikoproj/alert-manager/pkg/log"
 	"github.com/keikoproj/alert-manager/pkg/wavefront"
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -42,6 +46,13 @@ func (StatusUpdatePredicate) Update(e event.UpdateEvent) bool {
 	if oldWFAlertObj, ok := e.ObjectOld.(*alertmanagerv1alpha1.WavefrontAlert); ok {
 		newWFAlertObj := e.ObjectNew.(*alertmanagerv1alpha1.WavefrontAlert)
 		if !reflect.DeepEqual(oldWFAlertObj.Status, newWFAlertObj.Status) {
+			return false
+		}
+	}
+
+	if oldAlertsConfigObj, ok := e.ObjectOld.(*alertmanagerv1alpha1.AlertsConfig); ok {
+		newAlertsConfigObj := e.ObjectNew.(*alertmanagerv1alpha1.AlertsConfig)
+		if !reflect.DeepEqual(oldAlertsConfigObj.Status, newAlertsConfigObj.Status) {
 			return false
 		}
 	}
@@ -91,7 +102,7 @@ func (r *Client) UpdateStatus(ctx context.Context, obj client.Object, state aler
 
 //PatchStatus function patches the status based on the process step
 func (r *Client) PatchStatus(ctx context.Context, obj client.Object, patch client.Patch, state alertmanagerv1alpha1.State, requeueTime ...float64) (ctrl.Result, error) {
-	log := log.Logger(ctx, "controllers.common", "common", "UpdateStatus")
+	log := log.Logger(ctx, "controllers.common", "common", "PatchStatus")
 
 	if err := r.Status().Patch(ctx, obj, patch); err != nil {
 		log.Error(err, "Unable to patch the status", "status", state)
@@ -112,7 +123,7 @@ func (r *Client) PatchStatus(ctx context.Context, obj client.Object, patch clien
 	return ctrl.Result{RequeueAfter: time.Duration(requeueTime[0]) * time.Millisecond}, nil
 }
 
-//convertAlertCR converts alert CR to wf.Alert
+//ConvertAlertCR converts alert CR to wf.Alert
 func (r *Client) ConvertAlertCR(ctx context.Context, wfAlert *alertmanagerv1alpha1.WavefrontAlert, alert *wf.Alert) {
 	log := log.Logger(ctx, "controllers", "wavefrontalert_controller", "convertAlertCR")
 	//log = log.WithValues("wavefrontalert_cr", wfAlert.Name, "namespace", wfAlert.Namespace)
@@ -128,4 +139,69 @@ func (r *Client) ConvertAlertCR(ctx context.Context, wfAlert *alertmanagerv1alph
 		// There is no use of requeue in this case
 		r.UpdateStatus(ctx, wfAlert, alertmanagerv1alpha1.MalformedSpec)
 	}
+}
+
+//GetProcessedWFAlert function converts wavefront alert spec to wavefront api request by processing template with the values provided in alerts config
+func GetProcessedWFAlert(ctx context.Context, wfAlert *alertmanagerv1alpha1.WavefrontAlert, config *alertmanagerv1alpha1.Config, alert *wf.Alert) error {
+	log := log.Logger(ctx, "controllers", "common", "GetProcessedWFAlert")
+	log = log.WithValues("alertsConfig_cr", wfAlert.Name)
+
+	wfAlertBytes, err := json.Marshal(wfAlert.Spec)
+	if err != nil {
+		// update the status and retry it
+		return err
+	}
+
+	if err := wavefront.ValidateTemplateParams(ctx, wfAlert.Spec.ExportedParams, config.Params); err != nil {
+		return err
+	}
+
+	// execute Golang Template
+	wfAlertTemplate, err := template.ProcessTemplate(ctx, string(wfAlertBytes), config.Params)
+	if err != nil {
+		//update the status and retry it
+		return err
+	}
+	log.Info("Template process is successful", "here", wfAlertTemplate)
+
+	// Unmarshal back to wavefront alert
+	if err := json.Unmarshal([]byte(wfAlertTemplate), &wfAlert.Spec); err != nil {
+		// update the wfAlert status and retry it
+		return err
+	}
+	// Convert to Alert
+	if err := wavefront.ConvertAlertCRToWavefrontRequest(ctx, wfAlert.Spec, alert); err != nil {
+		errMsg := "unable to convert the wavefront spec to Alert API request. will not be retried"
+		log.Error(err, errMsg)
+		return err
+	}
+
+	// Validate the alert- just make sure severity and other required fields are properly replaced/substituted
+	if err := wavefront.ValidateAlertInput(ctx, alert); err != nil {
+		return err
+	}
+	return nil
+}
+
+//PatchWfAlertAndAlertsConfigStatus function patches the individual alert status for both wavefront alert and alerts config
+func (r *Client) PatchWfAlertAndAlertsConfigStatus(ctx context.Context, wfAlert *alertmanagerv1alpha1.WavefrontAlert, alertsConfig *alertmanagerv1alpha1.AlertsConfig, alertStatus alertmanagerv1alpha1.AlertStatus) error {
+	log := log.Logger(ctx, "controllers", "common", "PatchWfAlertAndAlertsConfigStatus")
+	log = log.WithValues("wfAlertCR", wfAlert.Name, "alertsConfigCR", alertsConfig.Name)
+
+	alertStatusBytes, _ := json.Marshal(alertStatus)
+	patch := []byte(fmt.Sprintf("{\"status\":{\"state\": \"%s\", \"alertsStatus\":{\"%s\":%s}}}", alertmanagerv1alpha1.Ready, wfAlert.Name, string(alertStatusBytes)))
+	_, err := r.PatchStatus(ctx, alertsConfig, client.RawPatch(types.MergePatchType, patch), alertmanagerv1alpha1.Ready)
+	if err != nil {
+		log.Error(err, "unable to patch the status for alerts config object")
+		return err
+	}
+	wfAlertStatusPatch := []byte(fmt.Sprintf("{\"status\":{\"state\": \"%s\",\"alertsStatus\":{\"%s\":%s}}}", alertmanagerv1alpha1.Ready, alertsConfig.Name, string(alertStatusBytes)))
+	if err != nil {
+		log.Error(err, "unable to patch the status for wavefront alert object")
+		return err
+	}
+	_, err = r.PatchStatus(ctx, wfAlert, client.RawPatch(types.MergePatchType, wfAlertStatusPatch), alertmanagerv1alpha1.Ready)
+	log.Info("alert successfully got updated for both wavefront alert and alerts config objects")
+
+	return nil
 }

@@ -80,6 +80,27 @@ var _ = Describe("Validate", func() {
 				Expect(err).To(BeNil())
 			})
 		})
+
+		Context("ExportParam with config Param comparision test", func() {
+			It("Send 1 value instead of 2 required values", func() {
+				err := wf.ValidateTemplateParams(context.Background(), []string{"foo", "bar"}, map[string]string{
+					"foo": "bar",
+				})
+				Expect(err).NotTo(BeNil())
+			})
+			It("Send wrong param name", func() {
+				err := wf.ValidateTemplateParams(context.Background(), []string{"foo"}, map[string]string{
+					"bar": "bar",
+				})
+				Expect(err).NotTo(BeNil())
+			})
+			It("Successful usecase", func() {
+				err := wf.ValidateTemplateParams(context.Background(), []string{"foo"}, map[string]string{
+					"foo": "bar",
+				})
+				Expect(err).To(BeNil())
+			})
+		})
 	})
 
 })

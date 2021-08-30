@@ -109,24 +109,27 @@ type WavefrontAlertStatus struct {
 	//State of the resource
 	State State `json:"state,omitempty"`
 	//RetryCount in case of error
-	RetryCount int `json:"retryCount"`
+	RetryCount int `json:"retryCount,omitempty"`
 	//ErrorDescription in case of error
 	ErrorDescription string `json:"errorDescription,omitempty"`
 	//Checksum of the exportedParams if exists
 	ExportParamsChecksum string `json:"exportParamsChecksum,omitempty"`
 	//This represents the checksum of the spec
 	LastChangeChecksum string `json:"lastChangeChecksum,omitempty"`
-	//Alert details
-	Alerts []Alert `json:"alerts,omitempty"`
+	//ObservedGeneration will have the last generation from spec metadata
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+	//AlertsStatus details includes individual alert details
+	AlertsStatus map[string]AlertStatus `json:"alertsStatus,omitempty"`
 }
 
-//Alert provides the detail about individual alert
-type Alert struct {
+//AlertStatus consists of individual alert details
+type AlertStatus struct {
 	ID                     string                 `json:"id"`
 	Name                   string                 `json:"alertName"`
 	Link                   string                 `json:"link,omitempty"`
 	State                  State                  `json:"state,omitempty"`
 	LastChangeChecksum     string                 `json:"lastChangeChecksum,omitempty"`
+	AssociatedAlert        AssociatedAlert        `json:"associatedAlert,omitempty"`
 	AssociatedAlertsConfig AssociatedAlertsConfig `json:"associatedAlertsConfig,omitempty"`
 }
 

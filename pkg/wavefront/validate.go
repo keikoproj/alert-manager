@@ -21,7 +21,7 @@ func ValidateAlertInput(ctx context.Context, input *wavefront.Alert) error {
 
 func validateAlertConditions(ctx context.Context, input *wavefront.Alert) error {
 	log := log.Logger(ctx, "pkg.wavefront", "validateAlertConditions")
-	log.V(1).Info("validating condition/s from input request")
+	log.V(1).Info("validating condition/s from input request", "alert", input)
 	if input.AlertType == wavefront.AlertTypeThreshold {
 		if len(input.Conditions) != 0 {
 			if err := validateThresholdLevels(ctx, utils.TrimSpacesMap(input.Conditions)); err != nil {
@@ -89,6 +89,18 @@ func validateSeverity(ctx context.Context, key string) error {
 		err := errors.New(msg)
 		log.Error(err, "invalid severity found")
 		return err
+	}
+	return nil
+}
+
+//ValidateTemplateParams function validates whether all the required template exported params been supplied in alert config
+func ValidateTemplateParams(ctx context.Context, exportParams []string, configValues map[string]string) error {
+	log := log.Logger(ctx, "pkg.wavefront", "validateTemplateParams")
+	log.V(1).Info("validating export params with config params")
+	for _, param := range exportParams {
+		if _, ok := configValues[param]; !ok {
+			return errors.New(fmt.Sprintf("Required exported param %s is not supplied. ", param))
+		}
 	}
 	return nil
 }
