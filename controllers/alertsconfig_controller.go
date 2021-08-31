@@ -20,21 +20,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	internalconfig "github.com/keikoproj/alert-manager/internal/config"
-	"github.com/keikoproj/alert-manager/internal/template"
 	"github.com/keikoproj/alert-manager/internal/utils"
 	"github.com/keikoproj/alert-manager/pkg/log"
 	"github.com/keikoproj/alert-manager/pkg/wavefront"
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
-	"strings"
-
-	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 
 	wf "github.com/WavefrontHQ/go-wavefront-management-api"
 	alertmanagerv1alpha1 "github.com/keikoproj/alert-manager/api/v1alpha1"
@@ -76,7 +74,6 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			fmt.Println(err)
 		}
 	}()
-
 	ctx = context.WithValue(ctx, requestId, uuid.New())
 	log := log.Logger(ctx, "controllers", "alertconfig_controller", "Reconcile")
 	log = log.WithValues("alertconfig_cr", req.NamespacedName)
@@ -109,17 +106,15 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	// Convert list of alerts from status into Map for easy access since
-	// we need to compare alert hash from status to newly calculated hash to find the difference
-	alertHashMap := alertsConfig.Status.Alerts
+	alertHashMap := alertsConfig.Status.AlertsStatus
 
-	// if len(configs) > 0
-	for _, config := range alertsConfig.Spec.Alerts {
+	// Handle create/update here
+	for alertName, config := range alertsConfig.Spec.Alerts {
 		// Calculate checksum and compare it with the status checksum
 		exist, reqChecksum := utils.CalculateAlertConfigChecksum(ctx, config)
 		// if request and status checksum matches then there is NO change in this specific alert config
-		if exist && alertHashMap[config.AlertName].LastChangeChecksum == reqChecksum {
-			log.Info("checksum is equal. skipping")
+		if exist && alertHashMap[alertName].LastChangeChecksum == reqChecksum {
+			log.V(1).Info("checksum is equal so there is no change. skipping", "alertName", alertName)
 			//skip it
 			continue
 		}
@@ -127,43 +122,24 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		// Get Alert CR
 
 		var wfAlert alertmanagerv1alpha1.WavefrontAlert
-		wfAlertNamespacedName := types.NamespacedName{Namespace: req.Namespace, Name: config.AlertName}
+		wfAlertNamespacedName := types.NamespacedName{Namespace: req.Namespace, Name: alertName}
 		if err := r.Get(ctx, wfAlertNamespacedName, &wfAlert); err != nil {
-			log.Error(err, "unable to get the wavefront alert details for the requested name", "wfAlertName", config.AlertName)
-
+			log.Error(err, "unable to get the wavefront alert details for the requested name", "wfAlertName", alertName)
+			// This means wavefront alert itself is not created.
+			// There could be 2 use cases
+			// 1. There was a race condition if wavefrontalert and alerts config got created 'almost at the same time'
+			// 2. Wrong alert name and user is going to correct
+			// Ideal way to handle this is to make the alert config status to error and requeue it once in 5 mins or so instead of standard kube builder requeue time
 			// Update the status and retry it
-			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, config.AlertName, alertmanagerv1alpha1.Error, err)
+			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, alertmanagerv1alpha1.Error, err)
 		}
-		wfAlertBytes, err := json.Marshal(wfAlert.Spec)
-		if err != nil {
-			// update the status and retry it
-			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, config.AlertName, alertmanagerv1alpha1.Error, err)
-		}
-
-		// execute Golang Template
-		wfAlertTemplate, err := template.ProcessTemplate(ctx, string(wfAlertBytes), config.Params)
-		if err != nil {
-			//update the status and retry it
-			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, config.AlertName, alertmanagerv1alpha1.Error, err)
-		}
-		log.Info("Template process is successful", "here", wfAlertTemplate)
-
-		// Unmarshal back to wavefront alert
-		if err := json.Unmarshal([]byte(wfAlertTemplate), &wfAlert.Spec); err != nil {
-			// update the wfAlert status and retry it
-			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, config.AlertName, alertmanagerv1alpha1.Error, err)
-		}
-		// Convert to Alert
 		var alert wf.Alert
-
-		if err := wavefront.ConvertAlertCRToWavefrontRequest(ctx, wfAlert.Spec, &alert); err != nil {
-			errMsg := "unable to convert the wavefront spec to Alert API request. will not be retried"
-			log.Error(err, errMsg)
-			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, config.AlertName, alertmanagerv1alpha1.Error, err)
+		//Get the processed wf alert
+		if err := controllercommon.GetProcessedWFAlert(ctx, &wfAlert, &config, &alert); err != nil {
+			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, alertmanagerv1alpha1.Error, err)
 		}
-
 		// Create/Update Alert
-		if alertHashMap[config.AlertName].ID == "" {
+		if alertHashMap[alertName].ID == "" {
 			// Create use case
 			if err := r.WavefrontClient.CreateAlert(ctx, &alert); err != nil {
 				r.Recorder.Event(&alertsConfig, v1.EventTypeWarning, err.Error(), "unable to create the alert")
@@ -174,7 +150,7 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				}
 				log.Error(err, "unable to create the alert")
 
-				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, config.AlertName, state, err)
+				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, state, err)
 			}
 			alertStatus := alertmanagerv1alpha1.AlertStatus{
 				ID:                 *alert.ID,
@@ -183,19 +159,23 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				Link:               fmt.Sprintf("https://%s/alerts/%s", internalconfig.Props.WavefrontAPIUrl(), *alert.ID),
 				State:              alertmanagerv1alpha1.Ready,
 				AssociatedAlert: alertmanagerv1alpha1.AssociatedAlert{
-					CR: config.AlertName,
+					CR: alertName,
+				},
+				AssociatedAlertsConfig: alertmanagerv1alpha1.AssociatedAlertsConfig{
+					CR: alertsConfig.Name,
 				},
 			}
-
-			alertStatusBytes, _ := json.Marshal(alertStatus)
-			patch := []byte(fmt.Sprintf("{\"status\":{\"state\": \"%s\", \"alertsCount\": 0, \"retryCount\": 0, \"alertStatus\":{\"%s\":%s}}}", alertmanagerv1alpha1.Ready, config.AlertName, string(alertStatusBytes)))
-			r.CommonClient.PatchStatus(ctx, &alertsConfig, client.RawPatch(types.MergePatchType, patch), alertmanagerv1alpha1.Ready)
+			if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, &wfAlert, &alertsConfig, alertStatus); err != nil {
+				log.Error(err, "unable to patch wfalert and alertsconfig status objects")
+				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, alertmanagerv1alpha1.Error, err)
+			}
 			log.Info("alert successfully got created", "alertID", alert.ID)
 
 		} else {
 
-			alertID := alertHashMap[config.AlertName].ID
+			alertID := alertHashMap[alertName].ID
 			alert.ID = &alertID
+			//TODO: Move this to common so it can be used for both wavefront and alerts config
 			//Update use case
 			if err := r.WavefrontClient.UpdateAlert(ctx, &alert); err != nil {
 				r.Recorder.Event(&alertsConfig, v1.EventTypeWarning, err.Error(), "unable to update the alert")
@@ -206,25 +186,97 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				}
 				log.Error(err, "unable to create the alert")
 
-				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, config.AlertName, state, err)
+				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, state, err)
 			}
 
-			alertStatus := alertHashMap[config.AlertName]
+			alertStatus := alertHashMap[alertName]
 			alertStatus.LastChangeChecksum = reqChecksum
 
-			alertStatusBytes, _ := json.Marshal(alertStatus)
-			patch := []byte(fmt.Sprintf("{\"status\":{\"state\": \"%s\", \"alertsCount\": 0, \"retryCount\": 0, \"alertStatus\":{\"%s\":%s}}}", alertmanagerv1alpha1.Ready, config.AlertName, string(alertStatusBytes)))
-			r.CommonClient.PatchStatus(ctx, &alertsConfig, client.RawPatch(types.MergePatchType, patch), alertmanagerv1alpha1.Ready)
+			if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, &wfAlert, &alertsConfig, alertStatus); err != nil {
+				log.Error(err, "unable to patch wfalert and alertsconfig status objects")
+				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, alertmanagerv1alpha1.Error, err)
+			}
 			log.Info("alert successfully got updated", "alertID", alert.ID)
 		}
-
-		// Update the Alert status and also Config Status
-		// No diff
-		// Continue
-
 	}
 
-	return ctrl.Result{}, nil
+	// Now - lets see if there is any config is removed compared to the status
+	// If there is any, we need to make a call to delete the alert
+	return r.HandleIndividalAlertConfigRemoval(ctx, req.NamespacedName)
+}
+
+//HandleIndividalAlertConfigRemoval function handles if there is any config got removed from the spec, if so- delete that alert in wavefront and also update the status
+func (r *AlertsConfigReconciler) HandleIndividalAlertConfigRemoval(ctx context.Context, namespacedName types.NamespacedName) (ctrl.Result, error) {
+	log := log.Logger(ctx, "controllers", "alertsconfig_controller", "HandleIndividalAlertConfigRemoval")
+	log = log.WithValues("alertsConfig_cr", namespacedName)
+	// Get the alerts config again
+
+	var updatedAlertsConfig alertmanagerv1alpha1.AlertsConfig
+	if err := r.Get(ctx, namespacedName, &updatedAlertsConfig); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+	tempStatusConfig := updatedAlertsConfig.Status.AlertsStatus
+	tempState := updatedAlertsConfig.Status.State
+	var toBeDeleted []string
+
+	for key, status := range updatedAlertsConfig.Status.AlertsStatus {
+		// This is for sure delete use case
+		if _, ok := updatedAlertsConfig.Spec.Alerts[key]; !ok {
+			//This means we didn't find this in spec anymore
+			// Lets delete that then
+			if err := r.DeleteIndividualAlert(ctx, updatedAlertsConfig.Name, status, updatedAlertsConfig.Namespace); err != nil {
+				//Ignore if errors since we can consider it as already deleted
+				log.Error(err, "unable to delete the alert, assuming alerts doesn't exist anymore- proceeding further")
+			}
+			toBeDeleted = append(toBeDeleted, key)
+		} else {
+			if status.State == alertmanagerv1alpha1.Error {
+				tempState = alertmanagerv1alpha1.Error
+			}
+		}
+	}
+
+	for _, key := range toBeDeleted {
+		delete(tempStatusConfig, key)
+	}
+	// update the count
+	updatedAlertsConfig.Status.AlertsCount = len(updatedAlertsConfig.Spec.Alerts)
+	updatedAlertsConfig.Status.AlertsStatus = tempStatusConfig
+	// update the status
+	return r.CommonClient.UpdateStatus(ctx, &updatedAlertsConfig, tempState, errRequeueTime)
+}
+
+//DeleteIndividualAlert function deletes individual alert and also patches the status on both wavefront alert and also alerts config status
+func (r *AlertsConfigReconciler) DeleteIndividualAlert(ctx context.Context, alertName string, alertStatus alertmanagerv1alpha1.AlertStatus, namespace string) error {
+	log := log.Logger(ctx, "controllers", "alertsconfig_controller", "DeleteIndividualAlert")
+	log = log.WithValues("alertsConfig_cr", alertName)
+
+	if alertStatus.ID != "" {
+		if err := r.WavefrontClient.DeleteAlert(ctx, alertStatus.ID); err != nil {
+			log.Error(err, "skipping alert deletion", "alertID", alertStatus.ID)
+			// Just skip it for now
+			// this is too opinionated but we don't want to stop the delete execution for other alerts as well
+			// if there is any valid reasons not to skip it, we can look into it in future
+		}
+	}
+
+	// Update the wavefront alert status
+
+	var wfAlert alertmanagerv1alpha1.WavefrontAlert
+	wfAlertNamespacedName := types.NamespacedName{Namespace: namespace, Name: alertStatus.AssociatedAlert.CR}
+	if err := r.Get(ctx, wfAlertNamespacedName, &wfAlert); err != nil {
+		log.Error(err, "unable to get the wavefront alert details for the requested name", "wfAlertName", alertName)
+		// This means wavefront alert itself is not there so we can ignore.
+		return nil
+	}
+
+	// Wavefront alert is present - lets update the status
+
+	currStatus := wfAlert.Status.AlertsStatus
+	delete(currStatus, alertName)
+	wfAlert.Status.AlertsStatus = currStatus
+	r.CommonClient.UpdateStatus(ctx, &wfAlert, wfAlert.Status.State)
+	return nil
 }
 
 //PatchIndividualAlertsConfigError function is a utility function to patch the error status
@@ -232,15 +284,15 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 func (r *AlertsConfigReconciler) PatchIndividualAlertsConfigError(ctx context.Context, alertsConfig *alertmanagerv1alpha1.AlertsConfig, alertName string, state alertmanagerv1alpha1.State, err error, requeueTime ...float64) (ctrl.Result, error) {
 	log := log.Logger(ctx, "controllers", "alertsconfig_controller", "PatchIndividualAlertsConfigError")
 	log = log.WithValues("alertsConfig_cr", alertsConfig.Name, "namespace", alertsConfig.Namespace)
-	alertStatus := alertsConfig.Status.Alerts[alertName]
+	alertStatus := alertsConfig.Status.AlertsStatus[alertName]
 	alertStatus.State = state
 	alertStatusBytes, _ := json.Marshal(alertStatus)
 	retryCount := alertsConfig.Status.RetryCount + 1
 	log.Error(err, "error occured in alerts config for alert name", "alertName", alertName)
 	r.Recorder.Event(alertsConfig, v1.EventTypeWarning, err.Error(), fmt.Sprintf("error occured in alerts config for alert name %s", alertName))
 
-	patch := []byte(fmt.Sprintf("{\"status\":{\"state\": \"%s\", \"alertsCount\": %d, \"retryCount\": %d, \"alertStatus\":{\"%s\":%s}}}", state, alertsConfig.Status.AlertsCount, retryCount, alertName, string(alertStatusBytes)))
-	return r.CommonClient.PatchStatus(ctx, alertsConfig, client.RawPatch(types.MergePatchType, patch), alertmanagerv1alpha1.Error, 30)
+	patch := []byte(fmt.Sprintf("{\"status\":{\"state\": \"%s\", \"alertsCount\": %d, \"retryCount\": %d, \"alertsStatus\":{\"%s\":%s}}}", state, alertsConfig.Status.AlertsCount, retryCount, alertName, string(alertStatusBytes)))
+	return r.CommonClient.PatchStatus(ctx, alertsConfig, client.RawPatch(types.MergePatchType, patch), alertmanagerv1alpha1.Error, errRequeueTime)
 }
 
 //HandleDelete function handles the deleting wavefront alerts
@@ -250,17 +302,14 @@ func (r *AlertsConfigReconciler) HandleDelete(ctx context.Context, alertsConfig 
 	// Lets check the status of the CR and
 	// retrieve all the alerts associated with this CR and delete it
 	//Check if any alerts were created with this config
-	if len(alertsConfig.Status.Alerts) > 0 {
+	if len(alertsConfig.Status.AlertsStatus) > 0 {
 		//Call wavefront api and delete the alerts one by one
-		for _, alert := range alertsConfig.Status.Alerts {
-			if alert.ID != "" {
-				if err := r.WavefrontClient.DeleteAlert(ctx, alert.ID); err != nil {
-					log.Error(err, "skipping alert deletion", "alertID", alert.ID)
-					// Just skip it for now
-					// this is too opinionated but we don't want to stop the delete execution for other alerts as well
-					// if there is any valid reasons not to skip it, we can look into it in future
-				}
-
+		for _, alert := range alertsConfig.Status.AlertsStatus {
+			if err := r.DeleteIndividualAlert(ctx, alertsConfig.Name, alert, alertsConfig.Namespace); err != nil {
+				log.Error(err, "skipping alert deletion", "alertID", alert.ID)
+				// Just skip it for now
+				// this is too opinionated but we don't want to stop the delete execution for other alerts as well
+				// if there is any valid reasons not to skip it, we can look into it in future
 			}
 		}
 	}

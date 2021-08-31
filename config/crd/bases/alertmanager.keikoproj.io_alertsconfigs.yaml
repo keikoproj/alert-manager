@@ -37,15 +37,10 @@ spec:
             description: AlertsConfigSpec defines the desired state of AlertsConfig
             properties:
               alerts:
-                description: Alerts- Provide each individual alert config
-                items:
+                additionalProperties:
                   description: Config section provides the AlertsConfig for each individual
                     alert
                   properties:
-                    alertName:
-                      description: AlertName- Name of the alert (or CR name for the
-                        respective CRD)
-                      type: string
                     gvk:
                       description: GVK can be used to provide CRD group, version and
                         kind- If there is a global GVK already provided this will
@@ -70,10 +65,9 @@ spec:
                       description: Params section can be used to provide exportParams
                         key values
                       type: object
-                  required:
-                  - alertName
                   type: object
-                type: array
+                description: Alerts- Provide each individual alert config
+                type: object
               globalGVK:
                 description: GlobalGVK- This is a global GVK config but user can overwrite
                   it if an AlertsConfig supports multiple type of Alerts in future.
@@ -97,13 +91,21 @@ spec:
           status:
             description: AlertsConfigStatus defines the observed state of AlertsConfig
             properties:
-              alertStatus:
+              alertsCount:
+                description: AlertsCount provides total number of alerts configured
+                type: integer
+              alertsStatus:
                 additionalProperties:
-                  description: AlertStatus
+                  description: AlertStatus consists of individual alert details
                   properties:
                     alertName:
                       type: string
                     associatedAlert:
+                      properties:
+                        CR:
+                          type: string
+                      type: object
+                    associatedAlertsConfig:
                       properties:
                         CR:
                           type: string
@@ -120,11 +122,8 @@ spec:
                   - alertName
                   - id
                   type: object
-                description: Alerts provides status of each individual alerts
+                description: AlertsStatus details includes individual alert details
                 type: object
-              alertsCount:
-                description: AlertsCount provides total number of alerts configured
-                type: integer
               errorDescription:
                 description: ErrorDescription in case of error
                 type: string
@@ -134,9 +133,6 @@ spec:
               state:
                 description: State of the resource
                 type: string
-            required:
-            - alertsCount
-            - retryCount
             type: object
         type: object
     served: true

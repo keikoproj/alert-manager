@@ -30,12 +30,14 @@ import (
 	"github.com/keikoproj/alert-manager/pkg/wavefront"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 
 	wf "github.com/WavefrontHQ/go-wavefront-management-api"
+	_ "github.com/golang/mock/mockgen/model"
 	alertmanagerv1alpha1 "github.com/keikoproj/alert-manager/api/v1alpha1"
 	controllercommon "github.com/keikoproj/alert-manager/controllers/common"
 )
@@ -46,7 +48,7 @@ const (
 	//2 minutes
 	maxWaitTime = 120000
 	//30 seconds
-	errRequeueTime = 300000
+	errRequeueTime = 30000
 )
 
 // WavefrontAlertReconciler reconciles a WavefrontAlert object
@@ -91,7 +93,7 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err := r.Get(ctx, req.NamespacedName, &wfAlert); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	var status alertmanagerv1alpha1.WavefrontAlertStatus
+	//var status alertmanagerv1alpha1.WavefrontAlertStatus
 	//Main responsibilities of the Wavefront Alert Controller
 	// Check if it is delete request
 	if !wfAlert.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -126,31 +128,36 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return r.CommonClient.UpdateStatus(ctx, &wfAlert, state, errRequeueTime)
 	}
 	lastChangeChecksum := utils.CalculateChecksum(ctx, string(data))
-	status.LastChangeChecksum = lastChangeChecksum
+	wfAlert.Status.LastChangeChecksum = lastChangeChecksum
 	// Check for exportedParams length
 	length := 0
 	proceed := true
 	if wfAlert.Spec.ExportedParams != nil {
 		length = len(wfAlert.Spec.ExportedParams)
 	}
+	if wfAlert.Status.ObservedGeneration == wfAlert.ObjectMeta.Generation {
+		proceed = false
+	}
+
 	if length > 0 {
 		// Check for exportedParams checksum
 		exist, reqChecksum := utils.ExportParamsChecksum(ctx, wfAlert.Spec.ExportedParams)
 		// if status doesn't have checksum- it means its very first request
 		if exist && &wfAlert.Status.ExportParamsChecksum != nil {
+			log.Info("checksum difference", "reqChecksum", reqChecksum, "checksum", wfAlert.Status.ExportParamsChecksum)
 			if reqChecksum != wfAlert.Status.ExportParamsChecksum {
 				proceed = false
-				status.State = alertmanagerv1alpha1.ReadyToBeUsed
+				wfAlert.Status.State = alertmanagerv1alpha1.ReadyToBeUsed
 				//TODO: Think about this again
-				status.ExportParamsChecksum = wfAlert.Status.ExportParamsChecksum
+				wfAlert.Status.ExportParamsChecksum = reqChecksum
 			}
 		}
 	}
 
 	if !proceed {
 		// do nothing
-		log.Info("exportedParams checksum changed. Not proceeding further..")
-		wfAlert.Status = status
+		log.Info("There is no change in the spec.. skipping")
+		//wfAlert.Status = status
 		return ctrl.Result{}, r.Status().Update(ctx, &wfAlert)
 	}
 
@@ -176,7 +183,7 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// TODO: In future, check if we need to do GET API call to get the existing alert and
 	//  compare it with the request to see if changes are really needed
 
-	if len(wfAlert.Status.Alerts) == 0 {
+	if len(wfAlert.Status.AlertsStatus) == 0 {
 		// New alert
 		// First time use case
 		// Lets create an alert
@@ -201,36 +208,29 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return r.CommonClient.UpdateStatus(ctx, &wfAlert, state, errRequeueTime)
 		}
 
-		status.State = alertmanagerv1alpha1.Ready
-		alertResponse := alertmanagerv1alpha1.Alert{
+		alertResponse := alertmanagerv1alpha1.AlertStatus{
 			ID:                 *alert.ID,
 			Name:               alert.Name,
 			Link:               fmt.Sprintf("https://%s/alerts/%s", config.Props.WavefrontAPIUrl(), *alert.ID),
 			LastChangeChecksum: lastChangeChecksum,
 		}
-		status.Alerts = []alertmanagerv1alpha1.Alert{alertResponse}
-		status.RetryCount = 0
-		wfAlert.Status = status
-
+		alertsStatus := make(map[string]alertmanagerv1alpha1.AlertStatus)
+		alertsStatus[alertResponse.Name] = alertResponse
+		wfAlert.Status.RetryCount = 0
+		wfAlert.Status.AlertsStatus = alertsStatus
+		wfAlert.Status.ObservedGeneration = wfAlert.ObjectMeta.Generation
 		return r.CommonClient.UpdateStatus(ctx, &wfAlert, alertmanagerv1alpha1.Ready)
 	}
 
 	// existing alert - Perform the updateAlert one by one
-
-	status.State = wfAlert.Status.State
-	var respAlerts []alertmanagerv1alpha1.Alert
-	for _, a := range wfAlert.Status.Alerts {
+	currStatus := wfAlert.Status.AlertsStatus
+	for _, a := range wfAlert.Status.AlertsStatus {
 		alert := wf.Alert{
 			ID: &a.ID,
 		}
 		r.convertAlertCR(ctx, &wfAlert, &alert)
 		state := alertmanagerv1alpha1.Ready
-		respAlert := alertmanagerv1alpha1.Alert{
-			ID:                 a.ID,
-			Name:               a.Name,
-			LastChangeChecksum: lastChangeChecksum,
-			Link:               fmt.Sprintf("https://%s/alerts/%s", config.Props.WavefrontAPIUrl(), *alert.ID),
-		}
+		respAlert := a
 		// TODO: Only do the UpdateAlert if there is a difference between parent lastChangeChecksum and child lastChangeChecksum- This could be in a scenario
 		//  where it updated 99 out of 100 child alerts and 1 got failed and it got requeued. so instead of trying to update 100 again lets just do only 1 api
 		// call update api
@@ -245,20 +245,39 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			respAlert.State = state
 			respAlert.LastChangeChecksum = a.LastChangeChecksum
 			// if even one of the child got failed, make parent status as error
-			status.State = state
-			status.RetryCount = wfAlert.Status.RetryCount + 1
+			wfAlert.Status.State = state
+			wfAlert.Status.RetryCount = wfAlert.Status.RetryCount + 1
 		}
 		log.Info("alert ids before and after", "before", a.ID, "after", alert.ID)
-		respAlert.State = alertmanagerv1alpha1.Ready
-		respAlerts = append(respAlerts, respAlert)
+		respAlert.State = state
+		//TODO: Figure out a better way to handle this in future when we have multiple
+		wfAlert.Status.State = state
+		currStatus[respAlert.Name] = respAlert
 	}
-	status.Alerts = respAlerts
-	if status.State == alertmanagerv1alpha1.Ready {
-		status.RetryCount = 0
-	}
-	wfAlert.Status = status
 
-	return r.CommonClient.UpdateStatus(ctx, &wfAlert, status.State, errRequeueTime)
+	if wfAlert.Status.State == alertmanagerv1alpha1.Ready {
+		wfAlert.Status.RetryCount = 0
+		wfAlert.Status.ErrorDescription = ""
+	}
+	wfAlert.Status.AlertsStatus = currStatus
+	wfAlert.Status.ObservedGeneration = wfAlert.ObjectMeta.Generation
+	return r.CommonClient.UpdateStatus(ctx, &wfAlert, wfAlert.Status.State, errRequeueTime)
+}
+
+//PatchIndividualAlertsStatusError function is a utility function to patch the error status
+// We use status patch instead of status update to avoid any overwrite between two threads when alertsConfig CR has multiple alert configs
+func (r *WavefrontAlertReconciler) PatchIndividualAlertsStatusError(ctx context.Context, wfAlert *alertmanagerv1alpha1.WavefrontAlert, alertName string, state alertmanagerv1alpha1.State, err error, requeueTime ...float64) (ctrl.Result, error) {
+	log := log.Logger(ctx, "controllers", "alertsconfig_controller", "PatchIndividualAlertsStatusError")
+	log = log.WithValues("alertsConfig_cr", wfAlert.Name, "namespace", wfAlert.Namespace)
+	alertStatus := wfAlert.Status.AlertsStatus[alertName]
+	alertStatus.State = state
+	alertStatusBytes, _ := json.Marshal(alertStatus)
+	retryCount := wfAlert.Status.RetryCount + 1
+	log.Error(err, "error occured in alerts config for alert name", "alertName", alertName)
+	r.Recorder.Event(wfAlert, v1.EventTypeWarning, err.Error(), fmt.Sprintf("error occured in wavefront controller for alert name %s", alertName))
+
+	patch := []byte(fmt.Sprintf("{\"status\":{\"state\": \"%s\", \"retryCount\": %d, \"alertStatus\":{\"%s\":%s}}}", state, retryCount, alertName, string(alertStatusBytes)))
+	return r.CommonClient.PatchStatus(ctx, wfAlert, client.RawPatch(types.MergePatchType, patch), alertmanagerv1alpha1.Error, errRequeueTime)
 }
 
 //HandleDelete function handles the deleting wavefront alerts
@@ -268,9 +287,9 @@ func (r *WavefrontAlertReconciler) HandleDelete(ctx context.Context, wfAlert *al
 	// Lets check the status of the CR and
 	// retrieve all the alerts associated with this CR and delete it
 	//Check if any alerts were created with this config
-	if len(wfAlert.Status.Alerts) > 0 {
+	if len(wfAlert.Status.AlertsStatus) > 0 {
 		//Call wavefront api and delete the alerts one by one
-		for _, alert := range wfAlert.Status.Alerts {
+		for _, alert := range wfAlert.Status.AlertsStatus {
 			if alert.ID != "" {
 				if err := r.WavefrontClient.DeleteAlert(ctx, alert.ID); err != nil {
 					log.Error(err, "skipping alert deletion", "alertID", alert.ID)

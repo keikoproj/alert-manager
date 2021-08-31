@@ -2,6 +2,7 @@ package wavefront
 
 import (
 	"context"
+	"errors"
 	wf "github.com/WavefrontHQ/go-wavefront-management-api"
 	"github.com/keikoproj/alert-manager/api/v1alpha1"
 	"github.com/keikoproj/alert-manager/pkg/log"
@@ -18,6 +19,11 @@ func ConvertAlertCRToWavefrontRequest(ctx context.Context, req v1alpha1.Wavefron
 	alert.AlertType = string(req.AlertType)
 	alert.Tags = req.Tags
 	alert.DisplayExpression = req.DisplayExpression
+	if req.Minutes == nil || req.ResolveAfter == nil {
+		err := errors.New("minutes and resolveAfter must be passed")
+		log.Error(err, "error occurred in ConvertAlertCRToWavefrontRequest")
+		return err
+	}
 	alert.Minutes = int(*req.Minutes)
 	alert.ResolveAfterMinutes = int(*req.ResolveAfter)
 	alert.Target = req.Target
