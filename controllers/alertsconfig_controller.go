@@ -172,11 +172,12 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			log.Info("alert successfully got created", "alertID", alert.ID)
 
 		} else {
-
 			alertID := alertHashMap[alertName].ID
 			alert.ID = &alertID
 			//TODO: Move this to common so it can be used for both wavefront and alerts config
 			//Update use case
+			// This can be changed to a common function that used by alertconfig and wavefrontalerts, because it is
+			// updating the wavefront alert
 			if err := r.WavefrontClient.UpdateAlert(ctx, &alert); err != nil {
 				r.Recorder.Event(&alertsConfig, v1.EventTypeWarning, err.Error(), "unable to update the alert")
 				state := alertmanagerv1alpha1.Error
