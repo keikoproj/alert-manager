@@ -194,7 +194,6 @@ func (r *Client) PatchWfAlertAndAlertsConfigStatus(
 ) error {
 	log := log.Logger(ctx, "controllers", "common", "PatchWfAlertAndAlertsConfigStatus")
 	log = log.WithValues("wfAlertCR", wfAlert.Name, "alertsConfigCR", alertsConfig.Name)
-	log.Info("Going inside PatchWfAlertAndAlertsConfigStatus")
 
 	alertStatusBytes, _ := json.Marshal(alertStatus)
 	patch := []byte(fmt.Sprintf("{\"status\":{\"state\": \"%s\", \"alertsStatus\":{\"%s\":%s}}}", state, wfAlert.Name, string(alertStatusBytes)))

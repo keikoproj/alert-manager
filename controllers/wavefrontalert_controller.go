@@ -164,7 +164,6 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			}
 			err := r.UpdateIndividualWavefrontAlert(ctx, req, c, alertsConfig, wfAlert)
 			if err != nil {
-				log.Info("UpdateIndividualWavefrontAlert was failed")
 				state := alertmanagerv1alpha1.Error
 				if strings.Contains(err.Error(), "Exceeded limit setting") {
 					state = alertmanagerv1alpha1.ClientExceededLimit
