@@ -156,11 +156,26 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		log.Info("wavefrontalerts spec was changed, processing to update individual alert that associated with it")
 		wfAlert.Status.LastChangeChecksum = lastChangeChecksum
 		for _, c := range wfAlert.Status.AlertsStatus {
-			err := r.UpdateIndividualWavefrontAlert(ctx, req, c, wfAlert)
+			// Get alertsconfig CR
+			alertConfigNamespacedName := types.NamespacedName{Namespace: req.Namespace, Name: c.AssociatedAlertsConfig.CR}
+			var alertsConfig alertmanagerv1alpha1.AlertsConfig
+			if err := r.Get(ctx, alertConfigNamespacedName, &alertsConfig); err != nil {
+				return r.UpdateIndividualWavefrontAlertStatusError(ctx, &wfAlert, alertmanagerv1alpha1.Error, err, errRequeueTime)
+			}
+			err := r.UpdateIndividualWavefrontAlert(ctx, req, c, alertsConfig, wfAlert)
 			if err != nil {
+				log.Info("UpdateIndividualWavefrontAlert was failed")
 				state := alertmanagerv1alpha1.Error
 				if strings.Contains(err.Error(), "Exceeded limit setting") {
 					state = alertmanagerv1alpha1.ClientExceededLimit
+				}
+				// Update alertStatus of wavefrontalert and alertsconfig
+				// for normal case, it is not changed
+				// for error case, it will be updated with error state
+				c.State = state
+				if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, state, &wfAlert, &alertsConfig, c, errRequeueTime); err != nil {
+					log.Error(err, "unable to patch wfalert and alertsconfig status objects")
+					return r.UpdateIndividualWavefrontAlertStatusError(ctx, &wfAlert, state, err, errRequeueTime)
 				}
 				return r.UpdateIndividualWavefrontAlertStatusError(ctx, &wfAlert, state, err, errRequeueTime)
 			}
@@ -363,15 +378,10 @@ func (r *WavefrontAlertReconciler) UpdateIndividualWavefrontAlert(
 	ctx context.Context,
 	req ctrl.Request,
 	alertStatus alertmanagerv1alpha1.AlertStatus,
+	alertsConfig alertmanagerv1alpha1.AlertsConfig,
 	wfAlert alertmanagerv1alpha1.WavefrontAlert,
 ) error {
 	log := log.Logger(ctx, "controllers", "wavefrontalert_controller", "UpdateIndividualWavefrontAlert")
-	// Get alertsconfig CR
-	alertConfigNamespacedName := types.NamespacedName{Namespace: req.Namespace, Name: alertStatus.AssociatedAlertsConfig.CR}
-	var alertsConfig alertmanagerv1alpha1.AlertsConfig
-	if err := r.Get(ctx, alertConfigNamespacedName, &alertsConfig); err != nil {
-		return err
-	}
 	// Get the corresponding alert in alertsConfig
 	config := alertsConfig.Spec.Alerts[alertStatus.AssociatedAlert.CR]
 	var alert wf.Alert
