@@ -4,6 +4,9 @@ metadata:
   name: alertsconfig-sample2
 spec:
   # Add fields here
+    globalParams:
+      foo: status.health
+      bar: warn
     globalGVK:
       group: alertmanager.keikoproj.io
       version: v1alpha1
@@ -14,3 +17,6 @@ spec:
           foo: status.health
           bar: severe
           zzz: status.health
+      wavefrontalert-sample2:
+        params:
+          foo: status.health

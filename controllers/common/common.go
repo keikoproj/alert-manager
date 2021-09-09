@@ -142,7 +142,7 @@ func (r *Client) ConvertAlertCR(ctx context.Context, wfAlert *alertmanagerv1alph
 }
 
 //GetProcessedWFAlert function converts wavefront alert spec to wavefront api request by processing template with the values provided in alerts config
-func GetProcessedWFAlert(ctx context.Context, wfAlert *alertmanagerv1alpha1.WavefrontAlert, config *alertmanagerv1alpha1.Config, alert *wf.Alert) error {
+func GetProcessedWFAlert(ctx context.Context, wfAlert *alertmanagerv1alpha1.WavefrontAlert, params map[string]string, alert *wf.Alert) error {
 	log := log.Logger(ctx, "controllers", "common", "GetProcessedWFAlert")
 	log = log.WithValues("alertsConfig_cr", wfAlert.Name)
 
@@ -152,12 +152,12 @@ func GetProcessedWFAlert(ctx context.Context, wfAlert *alertmanagerv1alpha1.Wave
 		return err
 	}
 
-	if err := wavefront.ValidateTemplateParams(ctx, wfAlert.Spec.ExportedParams, config.Params); err != nil {
+	if err := wavefront.ValidateTemplateParams(ctx, wfAlert.Spec.ExportedParams, params); err != nil {
 		return err
 	}
 
 	// execute Golang Template
-	wfAlertTemplate, err := template.ProcessTemplate(ctx, string(wfAlertBytes), config.Params)
+	wfAlertTemplate, err := template.ProcessTemplate(ctx, string(wfAlertBytes), params)
 	if err != nil {
 		//update the status and retry it
 		return err
