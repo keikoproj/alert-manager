@@ -168,21 +168,25 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 				if strings.Contains(err.Error(), "Exceeded limit setting") {
 					state = alertmanagerv1alpha1.ClientExceededLimit
 				}
-				// Update alertStatus of wavefrontalert and alertsconfig
-				// for normal case, it is not changed
-				// for error case, it will be updated with error state
+				// Update the state to be error for each alert
 				c.State = state
-				if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, state, &wfAlert, &alertsConfig, c, errRequeueTime); err != nil {
+				if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, c.State, &wfAlert, &alertsConfig, c, errRequeueTime); err != nil {
 					log.Error(err, "unable to patch wfalert and alertsconfig status objects")
 					return r.UpdateIndividualWavefrontAlertStatusError(ctx, &wfAlert, state, err, errRequeueTime)
 				}
 				return r.UpdateIndividualWavefrontAlertStatusError(ctx, &wfAlert, state, err, errRequeueTime)
 			}
+			// Update the state to be ready for each alert
+			c.State = alertmanagerv1alpha1.Ready
+			if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, c.State, &wfAlert, &alertsConfig, c); err != nil {
+				log.Error(err, "unable to patch wfalert and alertsconfig status objects")
+				return r.UpdateIndividualWavefrontAlertStatusError(ctx, &wfAlert, alertmanagerv1alpha1.Error, err, errRequeueTime)
+			}
 		}
 		wfAlert.Status.ObservedGeneration = wfAlert.ObjectMeta.Generation
 		// We are going to stop here because we already updated individual alerts that associate with
 		// this wavefront alert template
-		return ctrl.Result{}, r.Status().Update(ctx, &wfAlert)
+		return r.CommonClient.UpdateStatus(ctx, &wfAlert, alertmanagerv1alpha1.Ready, errRequeueTime)
 	}
 
 	wfAlert.Status.ObservedGeneration = wfAlert.ObjectMeta.Generation
