@@ -402,7 +402,6 @@ func (r *WavefrontAlertReconciler) UpdateIndividualWavefrontAlert(
 	if err := r.WavefrontClient.UpdateAlert(ctx, &alert); err != nil {
 		return err
 	}
-	// We do not need to update individual alertStatus here because there is no change in alertsConfig
 	log.Info("alert successfully got updated", "alertID", alert.ID)
 	return nil
 }
