@@ -25,11 +25,11 @@ func validateAlertConditions(ctx context.Context, input *wavefront.Alert) error 
 	if input.AlertType == wavefront.AlertTypeThreshold {
 		if len(input.Conditions) != 0 {
 			if err := validateThresholdLevels(ctx, utils.TrimSpacesMap(input.Conditions)); err != nil {
-				log.Error(err, "invalid severity mentioned in conditions")
+				log.Error(err, "validation failed: invalid severity mentioned in conditions")
 				return err
 			}
 		} else {
-			msg := fmt.Sprintf("conditions must not be empty")
+			msg := fmt.Sprintf("validation failed: conditions must not be empty")
 			err := errors.New(msg)
 			log.Error(err, msg)
 			return err
@@ -37,7 +37,7 @@ func validateAlertConditions(ctx context.Context, input *wavefront.Alert) error 
 
 	} else if input.AlertType == wavefront.AlertTypeClassic {
 		if input.Condition == "" {
-			msg := fmt.Sprintf("condition must not be empty")
+			msg := fmt.Sprintf("validation failed: condition must not be empty")
 			err := errors.New(msg)
 			log.Error(err, msg)
 			return err
@@ -45,17 +45,17 @@ func validateAlertConditions(ctx context.Context, input *wavefront.Alert) error 
 
 		if input.Severity != "" {
 			if err := validateSeverity(ctx, input.Severity); err != nil {
-				log.Error(err, "invalid severity mentioned in the request")
+				log.Error(err, "validation failed: invalid severity mentioned in the request")
 				return err
 			}
 		} else {
-			msg := fmt.Sprintf("severity must not be empty")
+			msg := fmt.Sprintf("validation failed: severity must not be empty")
 			err := errors.New(msg)
 			log.Error(err, msg)
 			return err
 		}
 	} else {
-		msg := fmt.Sprintf("invalid alert type: %s", input.AlertType)
+		msg := fmt.Sprintf("validation failed: invalid alert type: %s", input.AlertType)
 		err := errors.New(msg)
 		log.Error(err, msg)
 		return err

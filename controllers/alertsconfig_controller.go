@@ -165,14 +165,13 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 					CR: alertsConfig.Name,
 				},
 			}
-			if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, &wfAlert, &alertsConfig, alertStatus); err != nil {
+			if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, alertmanagerv1alpha1.Ready, &wfAlert, &alertsConfig, alertStatus); err != nil {
 				log.Error(err, "unable to patch wfalert and alertsconfig status objects")
 				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, alertmanagerv1alpha1.Error, err)
 			}
 			log.Info("alert successfully got created", "alertID", alert.ID)
 
 		} else {
-
 			alertID := alertHashMap[alertName].ID
 			alert.ID = &alertID
 			//TODO: Move this to common so it can be used for both wavefront and alerts config
@@ -192,7 +191,7 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			alertStatus := alertHashMap[alertName]
 			alertStatus.LastChangeChecksum = reqChecksum
 
-			if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, &wfAlert, &alertsConfig, alertStatus); err != nil {
+			if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, alertmanagerv1alpha1.Ready, &wfAlert, &alertsConfig, alertStatus); err != nil {
 				log.Error(err, "unable to patch wfalert and alertsconfig status objects")
 				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, alertmanagerv1alpha1.Error, err)
 			}

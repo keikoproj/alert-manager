@@ -184,23 +184,30 @@ func GetProcessedWFAlert(ctx context.Context, wfAlert *alertmanagerv1alpha1.Wave
 }
 
 //PatchWfAlertAndAlertsConfigStatus function patches the individual alert status for both wavefront alert and alerts config
-func (r *Client) PatchWfAlertAndAlertsConfigStatus(ctx context.Context, wfAlert *alertmanagerv1alpha1.WavefrontAlert, alertsConfig *alertmanagerv1alpha1.AlertsConfig, alertStatus alertmanagerv1alpha1.AlertStatus) error {
+func (r *Client) PatchWfAlertAndAlertsConfigStatus(
+	ctx context.Context,
+	state alertmanagerv1alpha1.State,
+	wfAlert *alertmanagerv1alpha1.WavefrontAlert,
+	alertsConfig *alertmanagerv1alpha1.AlertsConfig,
+	alertStatus alertmanagerv1alpha1.AlertStatus,
+	requeueTime ...float64,
+) error {
 	log := log.Logger(ctx, "controllers", "common", "PatchWfAlertAndAlertsConfigStatus")
 	log = log.WithValues("wfAlertCR", wfAlert.Name, "alertsConfigCR", alertsConfig.Name)
 
 	alertStatusBytes, _ := json.Marshal(alertStatus)
-	patch := []byte(fmt.Sprintf("{\"status\":{\"state\": \"%s\", \"alertsStatus\":{\"%s\":%s}}}", alertmanagerv1alpha1.Ready, wfAlert.Name, string(alertStatusBytes)))
-	_, err := r.PatchStatus(ctx, alertsConfig, client.RawPatch(types.MergePatchType, patch), alertmanagerv1alpha1.Ready)
+	patch := []byte(fmt.Sprintf("{\"status\":{\"state\": \"%s\", \"alertsStatus\":{\"%s\":%s}}}", state, wfAlert.Name, string(alertStatusBytes)))
+	_, err := r.PatchStatus(ctx, alertsConfig, client.RawPatch(types.MergePatchType, patch), state, requeueTime...)
 	if err != nil {
 		log.Error(err, "unable to patch the status for alerts config object")
 		return err
 	}
-	wfAlertStatusPatch := []byte(fmt.Sprintf("{\"status\":{\"state\": \"%s\",\"alertsStatus\":{\"%s\":%s}}}", alertmanagerv1alpha1.Ready, alertsConfig.Name, string(alertStatusBytes)))
+	wfAlertStatusPatch := []byte(fmt.Sprintf("{\"status\":{\"state\": \"%s\",\"alertsStatus\":{\"%s\":%s}}}", state, alertsConfig.Name, string(alertStatusBytes)))
 	if err != nil {
 		log.Error(err, "unable to patch the status for wavefront alert object")
 		return err
 	}
-	_, err = r.PatchStatus(ctx, wfAlert, client.RawPatch(types.MergePatchType, wfAlertStatusPatch), alertmanagerv1alpha1.Ready)
+	_, err = r.PatchStatus(ctx, wfAlert, client.RawPatch(types.MergePatchType, wfAlertStatusPatch), state, requeueTime...)
 	log.Info("alert successfully got updated for both wavefront alert and alerts config objects")
 
 	return nil

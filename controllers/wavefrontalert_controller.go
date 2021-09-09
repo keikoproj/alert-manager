@@ -114,32 +114,25 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		//That's fine- Let it come for requeue and we can create the alert
 		return ctrl.Result{}, nil
 	}
-
 	// Calculate the checksum
 	data, err := json.Marshal(wfAlert.Spec)
 	if err != nil {
-		log.Error(err, "unable to convert wavefront spec into string")
-		//This is probably rare scenario
-		state := alertmanagerv1alpha1.Error
-		//This is to avoid overwriting the other fields in status
-		wfAlert.Status.RetryCount = wfAlert.Status.RetryCount + 1
-		wfAlert.Status.ErrorDescription = err.Error()
-		wfAlert.Status.State = state
-		return r.CommonClient.UpdateStatus(ctx, &wfAlert, state, errRequeueTime)
+		return r.UpdateIndividualWavefrontAlertStatusError(ctx, &wfAlert, alertmanagerv1alpha1.Error, err, errRequeueTime)
 	}
 	lastChangeChecksum := utils.CalculateChecksum(ctx, string(data))
 	wfAlert.Status.LastChangeChecksum = lastChangeChecksum
 	// Check for exportedParams length
-	length := 0
+	exportedParamslength := 0
 	proceed := true
 	if wfAlert.Spec.ExportedParams != nil {
-		length = len(wfAlert.Spec.ExportedParams)
+		exportedParamslength = len(wfAlert.Spec.ExportedParams)
 	}
-	if wfAlert.Status.ObservedGeneration == wfAlert.ObjectMeta.Generation {
+
+	if wfAlert.Status.ObservedGeneration == wfAlert.ObjectMeta.Generation && wfAlert.Status.State != alertmanagerv1alpha1.Error {
 		proceed = false
 	}
 
-	if length > 0 {
+	if exportedParamslength > 0 {
 		// Check for exportedParams checksum
 		exist, reqChecksum := utils.ExportParamsChecksum(ctx, wfAlert.Spec.ExportedParams)
 		// if status doesn't have checksum- it means its very first request
@@ -153,7 +146,50 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			}
 		}
 	}
+	// If user changed exported params and wavefront alert spec (ObservedGeneration) at the same time, we cannot perform any
+	// change because we need the substituted value of that exported param
+	// If there is a change in wavefront alert spec (ObservedGeneration) and NO CHANGE in exported Params,
+	// we need to loop through all the alertsconfig CR under status
+	// and fill up with the substituted params value then apply the change in wavefront for individual alert
+	if exportedParamslength > 0 && proceed && wfAlert.Status.ObservedGeneration != wfAlert.ObjectMeta.Generation {
+		// wavefrontalerts spec change
+		log.Info("wavefrontalerts spec was changed, processing to update individual alert that associated with it")
+		wfAlert.Status.LastChangeChecksum = lastChangeChecksum
+		for _, c := range wfAlert.Status.AlertsStatus {
+			// Get alertsconfig CR
+			alertConfigNamespacedName := types.NamespacedName{Namespace: req.Namespace, Name: c.AssociatedAlertsConfig.CR}
+			var alertsConfig alertmanagerv1alpha1.AlertsConfig
+			if err := r.Get(ctx, alertConfigNamespacedName, &alertsConfig); err != nil {
+				return r.UpdateIndividualWavefrontAlertStatusError(ctx, &wfAlert, alertmanagerv1alpha1.Error, err, errRequeueTime)
+			}
+			err := r.UpdateIndividualWavefrontAlert(ctx, req, c, alertsConfig, wfAlert)
+			if err != nil {
+				state := alertmanagerv1alpha1.Error
+				if strings.Contains(err.Error(), "Exceeded limit setting") {
+					state = alertmanagerv1alpha1.ClientExceededLimit
+				}
+				// Update the state to be error for each alert
+				c.State = state
+				if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, c.State, &wfAlert, &alertsConfig, c, errRequeueTime); err != nil {
+					log.Error(err, "unable to patch wfalert and alertsconfig status objects")
+					return r.UpdateIndividualWavefrontAlertStatusError(ctx, &wfAlert, state, err, errRequeueTime)
+				}
+				return r.UpdateIndividualWavefrontAlertStatusError(ctx, &wfAlert, state, err, errRequeueTime)
+			}
+			// Update the state to be ready for each alert
+			c.State = alertmanagerv1alpha1.Ready
+			if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, c.State, &wfAlert, &alertsConfig, c); err != nil {
+				log.Error(err, "unable to patch wfalert and alertsconfig status objects")
+				return r.UpdateIndividualWavefrontAlertStatusError(ctx, &wfAlert, alertmanagerv1alpha1.Error, err, errRequeueTime)
+			}
+		}
+		wfAlert.Status.ObservedGeneration = wfAlert.ObjectMeta.Generation
+		// We are going to stop here because we already updated individual alerts that associate with
+		// this wavefront alert template
+		return r.CommonClient.UpdateStatus(ctx, &wfAlert, alertmanagerv1alpha1.Ready, errRequeueTime)
+	}
 
+	wfAlert.Status.ObservedGeneration = wfAlert.ObjectMeta.Generation
 	if !proceed {
 		// do nothing
 		log.Info("There is no change in the spec.. skipping")
@@ -165,16 +201,8 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	var alert wf.Alert
 	r.convertAlertCR(ctx, &wfAlert, &alert)
 	if err := wavefront.ValidateAlertInput(ctx, &alert); err != nil {
-		r.Recorder.Event(&wfAlert, v1.EventTypeWarning, err.Error(), "alert input request validation failed")
-		state := alertmanagerv1alpha1.Error
-		log.Error(err, "alert input request validation failed")
-		//This is to avoid overwriting the other fields in status
-		wfAlert.Status.RetryCount = wfAlert.Status.RetryCount + 1
-		wfAlert.Status.ErrorDescription = err.Error()
-		wfAlert.Status.State = state
-		//This might get tricky- if user rollsback the change- Keep it open until enough testing is done
 		wfAlert.Status.LastChangeChecksum = lastChangeChecksum
-		return r.CommonClient.UpdateStatus(ctx, &wfAlert, state, errRequeueTime)
+		return r.UpdateIndividualWavefrontAlertStatusError(ctx, &wfAlert, alertmanagerv1alpha1.Error, err, errRequeueTime)
 	}
 
 	// so simple validation is done so lets Handle reconcile
@@ -188,24 +216,17 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		// First time use case
 		// Lets create an alert
 		var alert wf.Alert
-
 		r.convertAlertCR(ctx, &wfAlert, &alert)
 		log.V(1).Info("alert values", "alertObj", alert)
 		if err := r.WavefrontClient.CreateAlert(ctx, &alert); err != nil {
-			r.Recorder.Event(&wfAlert, v1.EventTypeWarning, err.Error(), "unable to create the alert")
 			state := alertmanagerv1alpha1.Error
 			if strings.Contains(err.Error(), "Exceeded limit setting") {
 				// For ex: error is "Exceeded limit setting: 100 alerts allowed per customer"
 				state = alertmanagerv1alpha1.ClientExceededLimit
 			}
 			log.Error(err, "unable to create the alert")
-			wfAlert.Status = alertmanagerv1alpha1.WavefrontAlertStatus{
-				RetryCount:         wfAlert.Status.RetryCount + 1,
-				ErrorDescription:   err.Error(),
-				State:              state,
-				LastChangeChecksum: lastChangeChecksum,
-			}
-			return r.CommonClient.UpdateStatus(ctx, &wfAlert, state, errRequeueTime)
+			wfAlert.Status.LastChangeChecksum = lastChangeChecksum
+			return r.UpdateIndividualWavefrontAlertStatusError(ctx, &wfAlert, state, err, errRequeueTime)
 		}
 
 		alertResponse := alertmanagerv1alpha1.AlertStatus{
@@ -223,6 +244,7 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// existing alert - Perform the updateAlert one by one
+	// this is for standalone alerts not alertsconfig scenario
 	currStatus := wfAlert.Status.AlertsStatus
 	for _, a := range wfAlert.Status.AlertsStatus {
 		alert := wf.Alert{
@@ -241,7 +263,7 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 				// For ex: error is "Exceeded limit setting: 100 alerts allowed per customer"
 				state = alertmanagerv1alpha1.ClientExceededLimit
 			}
-			log.Error(err, "unable to create the alert")
+			log.Error(err, "unable to update the alert")
 			respAlert.State = state
 			respAlert.LastChangeChecksum = a.LastChangeChecksum
 			// if even one of the child got failed, make parent status as error
@@ -334,4 +356,52 @@ func (r *WavefrontAlertReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&alertmanagerv1alpha1.WavefrontAlert{}).
 		WithEventFilter(controllercommon.StatusUpdatePredicate{}).
 		Complete(r)
+}
+
+func (r *WavefrontAlertReconciler) UpdateIndividualWavefrontAlertStatusError(
+	ctx context.Context,
+	wfAlert *alertmanagerv1alpha1.WavefrontAlert,
+	state alertmanagerv1alpha1.State,
+	err error,
+	requeueTime ...float64,
+) (ctrl.Result, error) {
+	log := log.Logger(ctx, "controllers", "wavefrontalert_controller", "UpdateIndividualWavefrontAlertError")
+	log = log.WithValues("wavefront_cr", wfAlert.Name, "namespace", wfAlert.Namespace)
+
+	wfAlert.Status.RetryCount = wfAlert.Status.RetryCount + 1
+	wfAlert.Status.ErrorDescription = err.Error()
+	wfAlert.Status.State = state
+
+	log.Error(err, "error occurred in wavefront alert", "wavefrontAlert", wfAlert.Name)
+	r.Recorder.Event(wfAlert, v1.EventTypeWarning, err.Error(), fmt.Sprintf("error occurred in wavefront alert %s", wfAlert.Name))
+	return r.CommonClient.UpdateStatus(ctx, wfAlert, state, requeueTime[0])
+}
+
+func (r *WavefrontAlertReconciler) UpdateIndividualWavefrontAlert(
+	ctx context.Context,
+	req ctrl.Request,
+	alertStatus alertmanagerv1alpha1.AlertStatus,
+	alertsConfig alertmanagerv1alpha1.AlertsConfig,
+	wfAlert alertmanagerv1alpha1.WavefrontAlert,
+) error {
+	log := log.Logger(ctx, "controllers", "wavefrontalert_controller", "UpdateIndividualWavefrontAlert")
+	// Get the corresponding alert in alertsConfig
+	config := alertsConfig.Spec.Alerts[alertStatus.AssociatedAlert.CR]
+	var alert wf.Alert
+	// Create wavefront alert with proper substituted value of that exported param
+	if err := controllercommon.GetProcessedWFAlert(ctx, &wfAlert, &config, &alert); err != nil {
+		return err
+	}
+	// Update alert in wavefront
+	alert.ID = &alertStatus.ID
+	// Validate the alert request
+	if err := wavefront.ValidateAlertInput(ctx, &alert); err != nil {
+		return err
+	}
+
+	if err := r.WavefrontClient.UpdateAlert(ctx, &alert); err != nil {
+		return err
+	}
+	log.Info("alert successfully got updated", "alertID", alert.ID)
+	return nil
 }
