@@ -7,7 +7,7 @@ spec:
   alertType: CLASSIC
   alertName: test-alert3
   condition: avg(ts({{ .foo}}))
-  displayExpression: ts(status.health)
+  displayExpression: avg(ts(status.health))
   minutes: 50
   resolveAfterMinutes: 5
   severity: "{{.bar}}"

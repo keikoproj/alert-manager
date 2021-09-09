@@ -388,8 +388,11 @@ func (r *WavefrontAlertReconciler) UpdateIndividualWavefrontAlert(
 	// Get the corresponding alert in alertsConfig
 	config := alertsConfig.Spec.Alerts[alertStatus.AssociatedAlert.CR]
 	var alert wf.Alert
+	globalMap := alertsConfig.Spec.GlobalParams
+	//merge the alerts config global params and individual params
+	params := utils.MergeMaps(ctx, config.Params, globalMap)
 	// Create wavefront alert with proper substituted value of that exported param
-	if err := controllercommon.GetProcessedWFAlert(ctx, &wfAlert, &config, &alert); err != nil {
+	if err := controllercommon.GetProcessedWFAlert(ctx, &wfAlert, params, &alert); err != nil {
 		return err
 	}
 	// Update alert in wavefront

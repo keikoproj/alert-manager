@@ -107,11 +107,12 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	alertHashMap := alertsConfig.Status.AlertsStatus
-
+	globalMap := alertsConfig.Spec.GlobalParams
 	// Handle create/update here
 	for alertName, config := range alertsConfig.Spec.Alerts {
+
 		// Calculate checksum and compare it with the status checksum
-		exist, reqChecksum := utils.CalculateAlertConfigChecksum(ctx, config)
+		exist, reqChecksum := utils.CalculateAlertConfigChecksum(ctx, config, globalMap)
 		// if request and status checksum matches then there is NO change in this specific alert config
 		if exist && alertHashMap[alertName].LastChangeChecksum == reqChecksum {
 			log.V(1).Info("checksum is equal so there is no change. skipping", "alertName", alertName)
@@ -135,7 +136,10 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 		var alert wf.Alert
 		//Get the processed wf alert
-		if err := controllercommon.GetProcessedWFAlert(ctx, &wfAlert, &config, &alert); err != nil {
+		//merge the alerts config global params and individual params
+		params := utils.MergeMaps(ctx, config.Params, globalMap)
+
+		if err := controllercommon.GetProcessedWFAlert(ctx, &wfAlert, params, &alert); err != nil {
 			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, alertmanagerv1alpha1.Error, err)
 		}
 		// Create/Update Alert
