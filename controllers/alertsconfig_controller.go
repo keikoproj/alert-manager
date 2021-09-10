@@ -137,7 +137,7 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		var alert wf.Alert
 		//Get the processed wf alert
 		//merge the alerts config global params and individual params
-		params := utils.MergeMaps(ctx, config.Params, globalMap)
+		params := utils.MergeMaps(ctx, globalMap, config.Params)
 
 		if err := controllercommon.GetProcessedWFAlert(ctx, &wfAlert, params, &alert); err != nil {
 			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, alertmanagerv1alpha1.Error, err)
