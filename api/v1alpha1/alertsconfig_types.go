@@ -48,11 +48,13 @@ type GVK struct {
 }
 
 //Config section provides the AlertsConfig for each individual alert
+// +optional
 type Config struct {
 	//GVK can be used to provide CRD group, version and kind- If there is a global GVK already provided this will overwrite it
 	// +optional
 	GVK GVK `json:"gvk,omitempty"`
 	//Params section can be used to provide exportParams key values
+	// +optional
 	Params OrderedMap `json:"params,omitempty"`
 }
 

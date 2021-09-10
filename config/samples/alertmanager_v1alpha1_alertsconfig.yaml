@@ -13,3 +13,6 @@ spec:
         params:
           foo: status.health
           bar: severe
+      wavefrontalert-sample4:
+        params:
+          bar: severe
