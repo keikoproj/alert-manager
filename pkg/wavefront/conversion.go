@@ -19,6 +19,7 @@ func ConvertAlertCRToWavefrontRequest(ctx context.Context, req v1alpha1.Wavefron
 	alert.AlertType = string(req.AlertType)
 	alert.Tags = req.Tags
 	alert.DisplayExpression = req.DisplayExpression
+	alert.AdditionalInfo = req.AdditionalInformation
 	if req.Minutes == nil || req.ResolveAfter == nil {
 		err := errors.New("minutes and resolveAfter must be passed")
 		log.Error(err, "error occurred in ConvertAlertCRToWavefrontRequest")
