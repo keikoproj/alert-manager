@@ -76,6 +76,10 @@ type WavefrontAlertSpec struct {
 	//when the exportedParams length is not empty, Alert will not be created when Alert CR is created but rather alerts will be created when AlertsConfig CR created.
 	// +optional
 	ExportedParams []string `json:"exportedParams,omitempty"`
+	//exportedParamsDefaultValues can be used to provide the default values and will be used if alerts config doesn't provide any values. This could be useful if user
+	// wants to use go lang template for a field but majority of the alerts can use the default values instead of providing in each and every alert config files.
+	// +optional
+	ExportedParamsDefaultValues OrderedMap `json:"exportedParamsDefaultValues,omitempty"`
 }
 
 // AlertType represents the type of the Alert in Wavefront. Defaults to CLASSIC alert

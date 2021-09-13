@@ -30,6 +30,11 @@ type AlertsConfigSpec struct {
 	GlobalGVK GVK `json:"globalGVK,omitempty"`
 	//Alerts- Provide each individual alert config
 	Alerts map[string]Config `json:"alerts,omitempty"`
+	//GlobalParams is the place holder to provide any global param values which can be used in individual config sections.
+	//Please note that if a param is mentioned in both global param section and individual config params section,
+	//later will be taken into consideration and NOT the value from global param section
+	// +optional
+	GlobalParams OrderedMap `json:"globalParams,omitempty"`
 }
 
 //GVK struct represents the alert type and can be used as a global as well as in individual alert section
@@ -43,11 +48,13 @@ type GVK struct {
 }
 
 //Config section provides the AlertsConfig for each individual alert
+// +optional
 type Config struct {
 	//GVK can be used to provide CRD group, version and kind- If there is a global GVK already provided this will overwrite it
 	// +optional
 	GVK GVK `json:"gvk,omitempty"`
 	//Params section can be used to provide exportParams key values
+	// +optional
 	Params OrderedMap `json:"params,omitempty"`
 }
 

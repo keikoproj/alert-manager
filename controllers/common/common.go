@@ -6,6 +6,7 @@ import (
 	"fmt"
 	alertmanagerv1alpha1 "github.com/keikoproj/alert-manager/api/v1alpha1"
 	"github.com/keikoproj/alert-manager/internal/template"
+	"github.com/keikoproj/alert-manager/internal/utils"
 	"github.com/keikoproj/alert-manager/pkg/log"
 	"github.com/keikoproj/alert-manager/pkg/wavefront"
 	"k8s.io/api/core/v1"
@@ -142,7 +143,7 @@ func (r *Client) ConvertAlertCR(ctx context.Context, wfAlert *alertmanagerv1alph
 }
 
 //GetProcessedWFAlert function converts wavefront alert spec to wavefront api request by processing template with the values provided in alerts config
-func GetProcessedWFAlert(ctx context.Context, wfAlert *alertmanagerv1alpha1.WavefrontAlert, config *alertmanagerv1alpha1.Config, alert *wf.Alert) error {
+func GetProcessedWFAlert(ctx context.Context, wfAlert *alertmanagerv1alpha1.WavefrontAlert, params map[string]string, alert *wf.Alert) error {
 	log := log.Logger(ctx, "controllers", "common", "GetProcessedWFAlert")
 	log = log.WithValues("alertsConfig_cr", wfAlert.Name)
 
@@ -152,12 +153,14 @@ func GetProcessedWFAlert(ctx context.Context, wfAlert *alertmanagerv1alpha1.Wave
 		return err
 	}
 
-	if err := wavefront.ValidateTemplateParams(ctx, wfAlert.Spec.ExportedParams, config.Params); err != nil {
+	// merge wavefront alert default values and alert config map values
+	params = utils.MergeMaps(ctx, wfAlert.Spec.ExportedParamsDefaultValues, params)
+	if err := wavefront.ValidateTemplateParams(ctx, wfAlert.Spec.ExportedParams, params); err != nil {
 		return err
 	}
 
 	// execute Golang Template
-	wfAlertTemplate, err := template.ProcessTemplate(ctx, string(wfAlertBytes), config.Params)
+	wfAlertTemplate, err := template.ProcessTemplate(ctx, string(wfAlertBytes), params)
 	if err != nil {
 		//update the status and retry it
 		return err
@@ -208,7 +211,12 @@ func (r *Client) PatchWfAlertAndAlertsConfigStatus(
 		return err
 	}
 	_, err = r.PatchStatus(ctx, wfAlert, client.RawPatch(types.MergePatchType, wfAlertStatusPatch), state, requeueTime...)
+	if err != nil {
+		log.Error(err, "unable to patch the status for wfalert object")
+		return err
+	}
 	log.Info("alert successfully got updated for both wavefront alert and alerts config objects")
+	r.Recorder.Event(wfAlert, v1.EventTypeNormal, "Successful", fmt.Sprintf("successfully created/updated an alert name = %s", alertStatus.Name))
 
 	return nil
 }

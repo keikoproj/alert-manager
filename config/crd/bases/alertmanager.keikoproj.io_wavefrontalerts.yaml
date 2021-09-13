@@ -71,6 +71,15 @@ spec:
                 items:
                   type: string
                 type: array
+              exportedParamsDefaultValues:
+                additionalProperties:
+                  type: string
+                description: exportedParamsDefaultValues can be used to provide the
+                  default values and will be used if alerts config doesn't provide
+                  any values. This could be useful if user wants to use go lang template
+                  for a field but majority of the alerts can use the default values
+                  instead of providing in each and every alert config files.
+                type: object
               minutes:
                 description: Minutes where alert is in "true" state continuously to
                   trigger an alert

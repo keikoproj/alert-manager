@@ -21,14 +21,35 @@ func ExportParamsChecksum(ctx context.Context, exportedParams []string) (bool, s
 }
 
 //CalculateAlertConfigChecksum function calculates hash value for Alert Config
-func CalculateAlertConfigChecksum(ctx context.Context, input v1alpha1.Config) (bool, string) {
+func CalculateAlertConfigChecksum(ctx context.Context, input v1alpha1.Config, global v1alpha1.OrderedMap) (bool, string) {
 	log := log.Logger(ctx, "internal.utils", "util", "CalculateAlertConfigChecksum")
+
+	globalMap := MergeMaps(ctx, global, input.Params)
+	// Now, this should have the params from both global and local to calculate checksum
+	input.Params = globalMap
 	jsonData, err := json.Marshal(input)
 	if err != nil {
 		log.Error(err, "Unable to marshal the input request")
 		return false, ""
 	}
 	return true, calculateChecksum(ctx, string(jsonData))
+}
+
+//MergeMaps function used to merge two maps i.e, baseParams fields gets overwritten by overwriteParams if exists
+func MergeMaps(ctx context.Context, baseParams map[string]string, overwriteParams map[string]string) map[string]string {
+	log := log.Logger(ctx, "internal.utils", "util", "MergeMaps")
+	log.V(4).Info("merging maps")
+	globalMap := make(v1alpha1.OrderedMap)
+	// Order must be first load global
+	for k, v := range baseParams {
+		globalMap[k] = v
+	}
+
+	// overwrite if there is anything specified in individual section
+	for k, v := range overwriteParams {
+		globalMap[k] = v
+	}
+	return globalMap
 }
 
 //CalculateChecksum is an exported function

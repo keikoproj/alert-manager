@@ -87,6 +87,15 @@ spec:
                       related to
                     type: string
                 type: object
+              globalParams:
+                additionalProperties:
+                  type: string
+                description: GlobalParams is the place holder to provide any global
+                  param values which can be used in individual config sections. Please
+                  note that if a param is mentioned in both global param section and
+                  individual config params section, later will be taken into consideration
+                  and NOT the value from global param section
+                type: object
             type: object
           status:
             description: AlertsConfigStatus defines the observed state of AlertsConfig

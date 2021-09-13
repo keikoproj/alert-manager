@@ -2,12 +2,125 @@ package utils_test
 
 import (
 	"context"
+	"github.com/keikoproj/alert-manager/api/v1alpha1"
 	"github.com/keikoproj/alert-manager/internal/utils"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Util", func() {
+	Describe("Test MergeMaps function", func() {
+		Context("empty global map", func() {
+			result := utils.MergeMaps(context.Background(), map[string]string{}, map[string]string{
+				"foo": "bar",
+				"xyz": "xyz",
+				"abc": "abc",
+			})
+			It("should have no issues", func() {
+				Expect(result).To(Equal(map[string]string{
+					"abc": "abc",
+					"foo": "bar",
+					"xyz": "xyz",
+				}))
+			})
+		})
+		Context("empty overwrite map", func() {
+			result := utils.MergeMaps(context.Background(), map[string]string{
+				"foo": "bar",
+				"xyz": "xyz",
+				"abc": "abc",
+			}, map[string]string{})
+			It("should have no issues", func() {
+				Expect(result).To(Equal(map[string]string{
+					"abc": "abc",
+					"foo": "bar",
+					"xyz": "xyz",
+				}))
+			})
+		})
+		Context(" overwrite map", func() {
+			result := utils.MergeMaps(context.Background(), map[string]string{
+				"foo": "bar",
+				"xyz": "xyz",
+				"abc": "abc",
+			}, map[string]string{
+				"foo": "foo",
+			})
+			It("should have no issues", func() {
+				Expect(result).To(Equal(map[string]string{
+					"abc": "abc",
+					"foo": "foo",
+					"xyz": "xyz",
+				}))
+			})
+		})
+	})
+
+	Describe("Test CalculateAlertConfigChecksum ", func() {
+		Context("Valid case", func() {
+			flag, resp := utils.CalculateAlertConfigChecksum(context.Background(), v1alpha1.Config{
+				Params: map[string]string{
+					"foo": "bar",
+				},
+			}, map[string]string{})
+			It("resp should not be empty", func() {
+				Expect(flag).To(BeTrue())
+				Expect(resp).To(Equal("bad972fbf22115a55bb9803eddbeb879"))
+			})
+		})
+		Context("Overwriting global param", func() {
+			flag, resp := utils.CalculateAlertConfigChecksum(context.Background(), v1alpha1.Config{
+				Params: map[string]string{
+					"foo": "bar",
+				},
+			}, map[string]string{
+				"foo": "foo",
+			})
+			It("resp should not be empty", func() {
+				Expect(flag).To(BeTrue())
+				Expect(resp).To(Equal("bad972fbf22115a55bb9803eddbeb879"))
+			})
+		})
+		Context("only global param", func() {
+			flag, resp := utils.CalculateAlertConfigChecksum(context.Background(), v1alpha1.Config{
+				Params: map[string]string{},
+			}, map[string]string{
+				"foo": "bar",
+			})
+			It("resp should not be empty", func() {
+				Expect(flag).To(BeTrue())
+				Expect(resp).To(Equal("bad972fbf22115a55bb9803eddbeb879"))
+			})
+		})
+		Context("order shouldn't matter- test case1", func() {
+			flag, resp := utils.CalculateAlertConfigChecksum(context.Background(), v1alpha1.Config{
+				Params: map[string]string{
+					"bar": "bar",
+				},
+			}, map[string]string{
+				"foo": "bar",
+				"abc": "abc",
+			})
+			It("resp should not be empty", func() {
+				Expect(flag).To(BeTrue())
+				Expect(resp).To(Equal("8333896ab3c7ab08fd567bd64255b81c"))
+			})
+		})
+		Context("order shouldn't matter- test case2", func() {
+			flag, resp := utils.CalculateAlertConfigChecksum(context.Background(), v1alpha1.Config{
+				Params: map[string]string{
+					"bar": "bar",
+					"foo": "bar",
+				},
+			}, map[string]string{
+				"abc": "abc",
+			})
+			It("resp should not be empty", func() {
+				Expect(flag).To(BeTrue())
+				Expect(resp).To(Equal("8333896ab3c7ab08fd567bd64255b81c"))
+			})
+		})
+	})
 	Describe("Test ExportParamsChecksum", func() {
 		Context("empty list", func() {
 			flag, resp := utils.ExportParamsChecksum(context.Background(), []string{})
@@ -23,7 +136,7 @@ var _ = Describe("Util", func() {
 				Expect(resp).To(Not(BeEmpty()))
 			})
 		})
-		Context("A test to compare the difference in checksum with just one extra space", func() {
+		Context("valid test case", func() {
 			flag, resp := utils.ExportParamsChecksum(context.Background(), []string{"cluster", "namespace"})
 			It("test case -original", func() {
 				Expect(flag).To(BeTrue())

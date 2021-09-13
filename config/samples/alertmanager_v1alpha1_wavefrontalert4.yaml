@@ -1,19 +1,24 @@
 apiVersion: alertmanager.keikoproj.io/v1alpha1
 kind: WavefrontAlert
 metadata:
-  name: wavefrontalert-sample2
+  name: wavefrontalert-sample4
 spec:
   # Add fields here
   alertType: CLASSIC
-  alertName: test-alert3
-  condition: avg(ts({{ .foo}}))
-  displayExpression: ts(ts(status.health))
+  alertName: test-alert-sample4
+  condition: ts({{ .foo}})
+  displayExpression: ts({{ .zzz }})
   minutes: 50
   resolveAfterMinutes: 5
   severity: "{{.bar}}"
   exportedParams:
     - foo
     - bar
+    - zzz
+  exportedParamsDefaultValues:
+    foo: status.health
+    bar: warn
+    zzz: status.health
   tags:
     - test-alert
     - something-weird

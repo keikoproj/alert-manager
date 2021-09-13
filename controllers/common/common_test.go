@@ -132,14 +132,14 @@ var _ = Describe("Common", func() {
 
 		It("invalid template params", func() {
 			var alert wf.Alert
-			err := common.GetProcessedWFAlert(context.Background(), wfAlert, config, &alert)
+			err := common.GetProcessedWFAlert(context.Background(), wfAlert, config.Params, &alert)
 			Expect(err).NotTo(BeNil())
 		})
 
 		It("invalid spec to convert to wavefront request", func() {
 			config.Params["foo"] = "$foo"
 			var alert wf.Alert
-			err := common.GetProcessedWFAlert(context.Background(), wfAlert, config, &alert)
+			err := common.GetProcessedWFAlert(context.Background(), wfAlert, config.Params, &alert)
 			Expect(err).NotTo(BeNil())
 		})
 
@@ -149,7 +149,7 @@ var _ = Describe("Common", func() {
 			wfAlert.Spec.Minutes = &min
 			wfAlert.Spec.ResolveAfter = &min
 			var alert wf.Alert
-			err := common.GetProcessedWFAlert(context.Background(), wfAlert, config, &alert)
+			err := common.GetProcessedWFAlert(context.Background(), wfAlert, config.Params, &alert)
 			Expect(err).NotTo(BeNil())
 		})
 
@@ -159,7 +159,7 @@ var _ = Describe("Common", func() {
 			wfAlert.Spec.Minutes = &min
 			wfAlert.Spec.ResolveAfter = &min
 			var alert wf.Alert
-			err := common.GetProcessedWFAlert(context.Background(), wfAlert, config, &alert)
+			err := common.GetProcessedWFAlert(context.Background(), wfAlert, config.Params, &alert)
 			Expect(err).NotTo(BeNil())
 		})
 	})
