@@ -121,7 +121,6 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 		// if there is a diff
 		// Get Alert CR
-
 		var wfAlert alertmanagerv1alpha1.WavefrontAlert
 		wfAlertNamespacedName := types.NamespacedName{Namespace: req.Namespace, Name: alertName}
 		if err := r.Get(ctx, wfAlertNamespacedName, &wfAlert); err != nil {
@@ -132,7 +131,7 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			// 2. Wrong alert name and user is going to correct
 			// Ideal way to handle this is to make the alert config status to error and requeue it once in 5 mins or so instead of standard kube builder requeue time
 			// Update the status and retry it
-			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, alertmanagerv1alpha1.Error, err)
+			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, alertmanagerv1alpha1.Error, err, reqChecksum)
 		}
 		var alert wf.Alert
 		//Get the processed wf alert
@@ -140,7 +139,7 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		params := utils.MergeMaps(ctx, globalMap, config.Params)
 
 		if err := controllercommon.GetProcessedWFAlert(ctx, &wfAlert, params, &alert); err != nil {
-			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, alertmanagerv1alpha1.Error, err)
+			return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, alertmanagerv1alpha1.Error, err, reqChecksum)
 		}
 		// Create/Update Alert
 		if alertHashMap[alertName].ID == "" {
@@ -154,7 +153,7 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				}
 				log.Error(err, "unable to create the alert")
 
-				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, state, err)
+				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, state, err, reqChecksum)
 			}
 			alertStatus := alertmanagerv1alpha1.AlertStatus{
 				ID:                 *alert.ID,
@@ -171,7 +170,7 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			}
 			if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, alertmanagerv1alpha1.Ready, &wfAlert, &alertsConfig, alertStatus); err != nil {
 				log.Error(err, "unable to patch wfalert and alertsconfig status objects")
-				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, alertmanagerv1alpha1.Error, err)
+				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, alertmanagerv1alpha1.Error, err, reqChecksum)
 			}
 			log.Info("alert successfully got created", "alertID", alert.ID)
 
@@ -189,15 +188,16 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				}
 				log.Error(err, "unable to create the alert")
 
-				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, state, err)
+				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, state, err, reqChecksum)
 			}
 
 			alertStatus := alertHashMap[alertName]
 			alertStatus.LastChangeChecksum = reqChecksum
-
+			// Update the individual alert status state to be ready
+			alertStatus.State = alertmanagerv1alpha1.Ready
 			if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, alertmanagerv1alpha1.Ready, &wfAlert, &alertsConfig, alertStatus); err != nil {
 				log.Error(err, "unable to patch wfalert and alertsconfig status objects")
-				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, alertmanagerv1alpha1.Error, err)
+				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, alertmanagerv1alpha1.Error, err, reqChecksum)
 			}
 			log.Info("alert successfully got updated", "alertID", alert.ID)
 		}
@@ -284,11 +284,13 @@ func (r *AlertsConfigReconciler) DeleteIndividualAlert(ctx context.Context, aler
 
 //PatchIndividualAlertsConfigError function is a utility function to patch the error status
 // We use status patch instead of status update to avoid any overwrite between two threads when alertsConfig CR has multiple alert configs
-func (r *AlertsConfigReconciler) PatchIndividualAlertsConfigError(ctx context.Context, alertsConfig *alertmanagerv1alpha1.AlertsConfig, alertName string, state alertmanagerv1alpha1.State, err error, requeueTime ...float64) (ctrl.Result, error) {
+func (r *AlertsConfigReconciler) PatchIndividualAlertsConfigError(ctx context.Context, alertsConfig *alertmanagerv1alpha1.AlertsConfig, alertName string, state alertmanagerv1alpha1.State, err error, reqChecksum string, requeueTime ...float64) (ctrl.Result, error) {
 	log := log.Logger(ctx, "controllers", "alertsconfig_controller", "PatchIndividualAlertsConfigError")
 	log = log.WithValues("alertsConfig_cr", alertsConfig.Name, "namespace", alertsConfig.Namespace)
 	alertStatus := alertsConfig.Status.AlertsStatus[alertName]
 	alertStatus.State = state
+	// we should update checksum for error cases since the spec was already changed
+	alertStatus.LastChangeChecksum = reqChecksum
 	alertStatusBytes, _ := json.Marshal(alertStatus)
 	retryCount := alertsConfig.Status.RetryCount + 1
 	log.Error(err, "error occured in alerts config for alert name", "alertName", alertName)
