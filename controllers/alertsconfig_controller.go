@@ -114,14 +114,13 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		// Calculate checksum and compare it with the status checksum
 		exist, reqChecksum := utils.CalculateAlertConfigChecksum(ctx, config, globalMap)
 		// if request and status checksum matches then there is NO change in this specific alert config
-		if exist && alertHashMap[alertName].LastChangeChecksum == reqChecksum {
+		if exist && alertHashMap[alertName].LastChangeChecksum == reqChecksum && alertHashMap[alertName].State != alertmanagerv1alpha1.Error {
 			log.V(1).Info("checksum is equal so there is no change. skipping", "alertName", alertName)
 			//skip it
 			continue
 		}
 		// if there is a diff
 		// Get Alert CR
-
 		var wfAlert alertmanagerv1alpha1.WavefrontAlert
 		wfAlertNamespacedName := types.NamespacedName{Namespace: req.Namespace, Name: alertName}
 		if err := r.Get(ctx, wfAlertNamespacedName, &wfAlert); err != nil {
@@ -194,7 +193,8 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 			alertStatus := alertHashMap[alertName]
 			alertStatus.LastChangeChecksum = reqChecksum
-
+			// Update the individual alert status state to be ready
+			alertStatus.State = alertmanagerv1alpha1.Ready
 			if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, alertmanagerv1alpha1.Ready, &wfAlert, &alertsConfig, alertStatus); err != nil {
 				log.Error(err, "unable to patch wfalert and alertsconfig status objects")
 				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, alertmanagerv1alpha1.Error, err)
