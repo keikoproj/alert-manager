@@ -13,6 +13,7 @@ spec:
         params:
           foo: status.health
           bar: severe
+          targets: IKSMDev@intuit.com
       wavefrontalert-sample4:
         params:
           bar: severe

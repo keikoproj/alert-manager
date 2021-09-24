@@ -16,7 +16,20 @@ spec:
     singular: alertsconfig
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: current state of the alerts config
+      jsonPath: .status.state
+      name: State
+      type: string
+    - description: Retry count
+      jsonPath: .status.retryCount
+      name: RetryCount
+      type: integer
+    - description: time passed since alerts config creation
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: AlertsConfig is the Schema for the alertsconfigs API
@@ -119,6 +132,8 @@ spec:
                         CR:
                           type: string
                       type: object
+                    errorDescription:
+                      type: string
                     id:
                       type: string
                     lastChangeChecksum:

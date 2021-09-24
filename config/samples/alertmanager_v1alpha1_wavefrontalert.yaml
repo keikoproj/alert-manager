@@ -8,7 +8,7 @@ spec:
   alertName: test-alert2
   condition: ts(status.health)
   displayExpression: ts(status.health)
-  minutes: 50
+  minutes: 5
   resolveAfterMinutes: 5
   severity: severe
   tags:
