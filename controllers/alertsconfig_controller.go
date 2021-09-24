@@ -289,6 +289,7 @@ func (r *AlertsConfigReconciler) PatchIndividualAlertsConfigError(ctx context.Co
 	log = log.WithValues("alertsConfig_cr", alertsConfig.Name, "namespace", alertsConfig.Namespace)
 	alertStatus := alertsConfig.Status.AlertsStatus[alertName]
 	alertStatus.State = state
+	alertStatus.ErrorDescription = err.Error()
 	alertStatusBytes, _ := json.Marshal(alertStatus)
 	retryCount := alertsConfig.Status.RetryCount + 1
 	log.Error(err, "error occured in alerts config for alert name", "alertName", alertName)

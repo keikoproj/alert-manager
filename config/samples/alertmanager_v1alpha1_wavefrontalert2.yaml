@@ -11,6 +11,7 @@ spec:
   minutes: 50
   resolveAfterMinutes: 5
   severity: "{{.bar}}"
+  target: "{{ .targets }}"
   exportedParams:
     - foo
     - bar

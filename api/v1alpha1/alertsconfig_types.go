@@ -78,7 +78,9 @@ type AssociatedAlert struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="current state of the alerts config"
+// +kubebuilder:printcolumn:name="RetryCount",type="integer",JSONPath=".status.retryCount",description="Retry count"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="time passed since alerts config creation"
 // AlertsConfig is the Schema for the alertsconfigs API
 type AlertsConfig struct {
 	metav1.TypeMeta   `json:",inline"`

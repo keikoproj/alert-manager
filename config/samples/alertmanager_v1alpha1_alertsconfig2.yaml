@@ -6,7 +6,7 @@ spec:
   # Add fields here
     globalParams:
       foo: status.health
-      bar: warn
+      bar: severe
     globalGVK:
       group: alertmanager.keikoproj.io
       version: v1alpha1

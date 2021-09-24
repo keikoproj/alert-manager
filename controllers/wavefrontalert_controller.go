@@ -293,6 +293,7 @@ func (r *WavefrontAlertReconciler) PatchIndividualAlertsStatusError(ctx context.
 	log = log.WithValues("alertsConfig_cr", wfAlert.Name, "namespace", wfAlert.Namespace)
 	alertStatus := wfAlert.Status.AlertsStatus[alertName]
 	alertStatus.State = state
+	alertStatus.ErrorDescription = err.Error()
 	alertStatusBytes, _ := json.Marshal(alertStatus)
 	retryCount := wfAlert.Status.RetryCount + 1
 	log.Error(err, "error occured in alerts config for alert name", "alertName", alertName)
