@@ -114,7 +114,7 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		// Calculate checksum and compare it with the status checksum
 		exist, reqChecksum := utils.CalculateAlertConfigChecksum(ctx, config, globalMap)
 		// if request and status checksum matches then there is NO change in this specific alert config
-		if exist && alertHashMap[alertName].LastChangeChecksum == reqChecksum {
+		if exist && alertHashMap[alertName].LastChangeChecksum == reqChecksum && alertHashMap[alertName].State != alertmanagerv1alpha1.Error {
 			log.V(1).Info("checksum is equal so there is no change. skipping", "alertName", alertName)
 			//skip it
 			continue
