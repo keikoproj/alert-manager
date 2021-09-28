@@ -225,7 +225,7 @@ func (r *AlertsConfigReconciler) HandleIndividalAlertConfigRemoval(ctx context.C
 	var toBeDeleted []string
 	areAlertsReady := true
 
-	for key, status := range tempStatusConfig {
+	for key, status := range updatedAlertsConfig.Status.AlertsStatus {
 		// This is for sure delete use case
 		if _, ok := updatedAlertsConfig.Spec.Alerts[key]; !ok {
 			//This means we didn't find this in spec anymore
