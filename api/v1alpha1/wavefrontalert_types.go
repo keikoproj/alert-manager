@@ -135,7 +135,7 @@ type AlertStatus struct {
 	LastChangeChecksum     string                 `json:"lastChangeChecksum,omitempty"`
 	AssociatedAlert        AssociatedAlert        `json:"associatedAlert,omitempty"`
 	AssociatedAlertsConfig AssociatedAlertsConfig `json:"associatedAlertsConfig,omitempty"`
-	ErrorDescription       string                 `json:"errorDescription,omitempty"`
+	ErrorDescription       string                 `json:"errorDescription"`
 }
 
 type AssociatedAlertsConfig struct {
