@@ -161,7 +161,6 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				LastChangeChecksum: reqChecksum,
 				Link:               fmt.Sprintf("https://%s/alerts/%s", internalconfig.Props.WavefrontAPIUrl(), *alert.ID),
 				State:              alertmanagerv1alpha1.Ready,
-				ErrorDescription:   "",
 				AssociatedAlert: alertmanagerv1alpha1.AssociatedAlert{
 					CR: alertName,
 				},
@@ -196,7 +195,6 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			alertStatus.LastChangeChecksum = reqChecksum
 			// Update the individual alert status state to be ready and cleanup the error message
 			alertStatus.State = alertmanagerv1alpha1.Ready
-			alertStatus.ErrorDescription = ""
 			if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, alertmanagerv1alpha1.Ready, &wfAlert, &alertsConfig, alertStatus); err != nil {
 				log.Error(err, "unable to patch wfalert and alertsconfig status objects")
 				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, alertmanagerv1alpha1.Error, err)
