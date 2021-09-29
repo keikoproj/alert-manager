@@ -193,7 +193,7 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 			alertStatus := alertHashMap[alertName]
 			alertStatus.LastChangeChecksum = reqChecksum
-			// Update the individual alert status state to be ready
+			// Update the individual alert status state to be ready and cleanup the error message
 			alertStatus.State = alertmanagerv1alpha1.Ready
 			if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, alertmanagerv1alpha1.Ready, &wfAlert, &alertsConfig, alertStatus); err != nil {
 				log.Error(err, "unable to patch wfalert and alertsconfig status objects")
@@ -221,6 +221,7 @@ func (r *AlertsConfigReconciler) HandleIndividalAlertConfigRemoval(ctx context.C
 	tempStatusConfig := updatedAlertsConfig.Status.AlertsStatus
 	tempState := updatedAlertsConfig.Status.State
 	var toBeDeleted []string
+	areAlertsReady := true
 
 	for key, status := range updatedAlertsConfig.Status.AlertsStatus {
 		// This is for sure delete use case
@@ -235,6 +236,7 @@ func (r *AlertsConfigReconciler) HandleIndividalAlertConfigRemoval(ctx context.C
 		} else {
 			if status.State == alertmanagerv1alpha1.Error {
 				tempState = alertmanagerv1alpha1.Error
+				areAlertsReady = false
 			}
 		}
 	}
@@ -245,6 +247,10 @@ func (r *AlertsConfigReconciler) HandleIndividalAlertConfigRemoval(ctx context.C
 	// update the count
 	updatedAlertsConfig.Status.AlertsCount = len(updatedAlertsConfig.Spec.Alerts)
 	updatedAlertsConfig.Status.AlertsStatus = tempStatusConfig
+	// reset the retry count if all the alerts are Ready
+	if areAlertsReady {
+		updatedAlertsConfig.Status.RetryCount = 0
+	}
 	// update the status
 	return r.CommonClient.UpdateStatus(ctx, &updatedAlertsConfig, tempState, errRequeueTime)
 }
