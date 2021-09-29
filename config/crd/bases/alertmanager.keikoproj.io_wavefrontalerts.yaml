@@ -159,7 +159,6 @@ spec:
                       type: string
                   required:
                   - alertName
-                  - errorDescription
                   - id
                   type: object
                 description: AlertsStatus details includes individual alert details
