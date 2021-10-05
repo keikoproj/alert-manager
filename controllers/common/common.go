@@ -10,6 +10,7 @@ import (
 	"github.com/keikoproj/alert-manager/pkg/log"
 	"github.com/keikoproj/alert-manager/pkg/wavefront"
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"reflect"
@@ -197,7 +198,7 @@ func (r *Client) PatchWfAlertAndAlertsConfigStatus(
 ) error {
 	log := log.Logger(ctx, "controllers", "common", "PatchWfAlertAndAlertsConfigStatus")
 	log = log.WithValues("wfAlertCR", wfAlert.Name, "alertsConfigCR", alertsConfig.Name)
-
+	alertStatus.LastUpdatedTimestamp = metav1.Now()
 	alertStatusBytes, _ := json.Marshal(alertStatus)
 	patch := []byte(fmt.Sprintf("{\"status\":{\"state\": \"%s\", \"alertsStatus\":{\"%s\":%s}}}", state, wfAlert.Name, string(alertStatusBytes)))
 	_, err := r.PatchStatus(ctx, alertsConfig, client.RawPatch(types.MergePatchType, patch), state, requeueTime...)
