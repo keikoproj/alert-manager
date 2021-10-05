@@ -74,7 +74,7 @@ type AlertsConfigStatus struct {
 
 type AssociatedAlert struct {
 	CR         string `json:"CR,omitempty"`
-	Generation int64    `json:"generation,omitempty"`
+	Generation int64  `json:"generation,omitempty"`
 }
 
 //+kubebuilder:object:root=true

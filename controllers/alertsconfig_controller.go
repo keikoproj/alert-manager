@@ -163,7 +163,7 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				Link:               fmt.Sprintf("https://%s/alerts/%s", internalconfig.Props.WavefrontAPIUrl(), *alert.ID),
 				State:              alertmanagerv1alpha1.Ready,
 				AssociatedAlert: alertmanagerv1alpha1.AssociatedAlert{
-					CR: alertName,
+					CR:         alertName,
 					Generation: wfAlert.Status.ObservedGeneration,
 				},
 				AssociatedAlertsConfig: alertmanagerv1alpha1.AssociatedAlertsConfig{
