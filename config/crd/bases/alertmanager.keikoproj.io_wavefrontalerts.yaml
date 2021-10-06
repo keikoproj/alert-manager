@@ -141,6 +141,9 @@ spec:
                       properties:
                         CR:
                           type: string
+                        generation:
+                          format: int64
+                          type: integer
                       type: object
                     associatedAlertsConfig:
                       properties:
@@ -152,6 +155,11 @@ spec:
                     id:
                       type: string
                     lastChangeChecksum:
+                      type: string
+                    lastUpdatedTimestamp:
+                      description: LastUpdatedTimestamp represents the last time the
+                        alert has been modified
+                      format: date-time
                       type: string
                     link:
                       type: string

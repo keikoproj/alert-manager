@@ -27,6 +27,7 @@ import (
 	"github.com/keikoproj/alert-manager/pkg/log"
 	"github.com/keikoproj/alert-manager/pkg/wavefront"
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -162,11 +163,13 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				Link:               fmt.Sprintf("https://%s/alerts/%s", internalconfig.Props.WavefrontAPIUrl(), *alert.ID),
 				State:              alertmanagerv1alpha1.Ready,
 				AssociatedAlert: alertmanagerv1alpha1.AssociatedAlert{
-					CR: alertName,
+					CR:         alertName,
+					Generation: wfAlert.Status.ObservedGeneration,
 				},
 				AssociatedAlertsConfig: alertmanagerv1alpha1.AssociatedAlertsConfig{
 					CR: alertsConfig.Name,
 				},
+				LastUpdatedTimestamp: metav1.Now(),
 			}
 			if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, alertmanagerv1alpha1.Ready, &wfAlert, &alertsConfig, alertStatus); err != nil {
 				log.Error(err, "unable to patch wfalert and alertsconfig status objects")
@@ -195,6 +198,7 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			alertStatus.LastChangeChecksum = reqChecksum
 			// Update the individual alert status state to be ready and cleanup the error message
 			alertStatus.State = alertmanagerv1alpha1.Ready
+			alertStatus.AssociatedAlert.Generation = wfAlert.Status.ObservedGeneration
 			if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, alertmanagerv1alpha1.Ready, &wfAlert, &alertsConfig, alertStatus); err != nil {
 				log.Error(err, "unable to patch wfalert and alertsconfig status objects")
 				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, alertmanagerv1alpha1.Error, err)
@@ -296,6 +300,7 @@ func (r *AlertsConfigReconciler) PatchIndividualAlertsConfigError(ctx context.Co
 	alertStatus := alertsConfig.Status.AlertsStatus[alertName]
 	alertStatus.State = state
 	alertStatus.ErrorDescription = err.Error()
+	alertStatus.LastUpdatedTimestamp = metav1.Now()
 	alertStatusBytes, _ := json.Marshal(alertStatus)
 	retryCount := alertsConfig.Status.RetryCount + 1
 	log.Error(err, "error occured in alerts config for alert name", "alertName", alertName)

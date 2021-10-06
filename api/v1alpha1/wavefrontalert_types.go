@@ -136,6 +136,9 @@ type AlertStatus struct {
 	AssociatedAlert        AssociatedAlert        `json:"associatedAlert,omitempty"`
 	AssociatedAlertsConfig AssociatedAlertsConfig `json:"associatedAlertsConfig,omitempty"`
 	ErrorDescription       string                 `json:"errorDescription,omitempty"`
+	//LastUpdatedTimestamp represents the last time the alert has been modified
+	// +optional
+	LastUpdatedTimestamp metav1.Time `json:"lastUpdatedTimestamp,omitempty"`
 }
 
 type AssociatedAlertsConfig struct {

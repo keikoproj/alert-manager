@@ -63,7 +63,7 @@ type AlertsConfigStatus struct {
 	//State of the resource
 	State State `json:"state,omitempty"`
 	//RetryCount in case of error
-	RetryCount int `json:"retryCount,omitempty"`
+	RetryCount int `json:"retryCount"`
 	//AlertsCount provides total number of alerts configured
 	AlertsCount int `json:"alertsCount,omitempty"`
 	//ErrorDescription in case of error
@@ -73,7 +73,8 @@ type AlertsConfigStatus struct {
 }
 
 type AssociatedAlert struct {
-	CR string `json:"CR,omitempty"`
+	CR         string `json:"CR,omitempty"`
+	Generation int64  `json:"generation,omitempty"`
 }
 
 //+kubebuilder:object:root=true
