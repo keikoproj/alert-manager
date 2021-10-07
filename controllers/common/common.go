@@ -3,6 +3,7 @@ package common
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	alertmanagerv1alpha1 "github.com/keikoproj/alert-manager/api/v1alpha1"
 	"github.com/keikoproj/alert-manager/internal/template"
@@ -151,6 +152,14 @@ func GetProcessedWFAlert(ctx context.Context, wfAlert *alertmanagerv1alpha1.Wave
 	wfAlertBytes, err := json.Marshal(wfAlert.Spec)
 	if err != nil {
 		// update the status and retry it
+		return err
+	}
+
+	//standalone alert
+	if len(wfAlert.Spec.ExportedParams) == 0 {
+		errMsg := "cannot use standalone alert with alertsconfig. must have exportedParams in wavefrontalert cr"
+		err := errors.New(errMsg)
+		log.Error(err, errMsg)
 		return err
 	}
 
