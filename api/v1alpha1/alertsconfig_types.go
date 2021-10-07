@@ -63,7 +63,7 @@ type AlertsConfigStatus struct {
 	//State of the resource
 	State State `json:"state,omitempty"`
 	//RetryCount in case of error
-	RetryCount int `json:"retryCount"`
+	RetryCount int `json:"retryCount,omitempty"`
 	//AlertsCount provides total number of alerts configured
 	AlertsCount int `json:"alertsCount,omitempty"`
 	//ErrorDescription in case of error

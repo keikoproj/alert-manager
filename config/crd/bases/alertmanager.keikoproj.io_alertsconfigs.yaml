@@ -165,8 +165,6 @@ spec:
               state:
                 description: State of the resource
                 type: string
-            required:
-            - retryCount
             type: object
         type: object
     served: true
