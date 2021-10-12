@@ -199,6 +199,7 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			// Update the individual alert status state to be ready and cleanup the error message
 			alertStatus.State = alertmanagerv1alpha1.Ready
 			alertStatus.AssociatedAlert.Generation = wfAlert.Status.ObservedGeneration
+			alertStatus.ErrorDescription = ""
 			if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, alertmanagerv1alpha1.Ready, &wfAlert, &alertsConfig, alertStatus); err != nil {
 				log.Error(err, "unable to patch wfalert and alertsconfig status objects")
 				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, alertmanagerv1alpha1.Error, err)
