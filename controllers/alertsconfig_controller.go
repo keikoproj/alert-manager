@@ -170,6 +170,7 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 					CR: alertsConfig.Name,
 				},
 				LastUpdatedTimestamp: metav1.Now(),
+				ErrorDescription:     "",
 			}
 			if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, alertmanagerv1alpha1.Ready, &wfAlert, &alertsConfig, alertStatus); err != nil {
 				log.Error(err, "unable to patch wfalert and alertsconfig status objects")
