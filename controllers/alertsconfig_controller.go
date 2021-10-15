@@ -82,6 +82,7 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// Get the CR
 	var alertsConfig alertmanagerv1alpha1.AlertsConfig
+	alertsConfig.Status.RetryCount = 0
 	if err := r.Get(ctx, req.NamespacedName, &alertsConfig); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
