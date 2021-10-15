@@ -27,6 +27,7 @@ import (
 	"github.com/keikoproj/alert-manager/pkg/log"
 	"github.com/keikoproj/alert-manager/pkg/wavefront"
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -114,14 +115,13 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		// Calculate checksum and compare it with the status checksum
 		exist, reqChecksum := utils.CalculateAlertConfigChecksum(ctx, config, globalMap)
 		// if request and status checksum matches then there is NO change in this specific alert config
-		if exist && alertHashMap[alertName].LastChangeChecksum == reqChecksum {
+		if exist && alertHashMap[alertName].LastChangeChecksum == reqChecksum && alertHashMap[alertName].State != alertmanagerv1alpha1.Error {
 			log.V(1).Info("checksum is equal so there is no change. skipping", "alertName", alertName)
 			//skip it
 			continue
 		}
 		// if there is a diff
 		// Get Alert CR
-
 		var wfAlert alertmanagerv1alpha1.WavefrontAlert
 		wfAlertNamespacedName := types.NamespacedName{Namespace: req.Namespace, Name: alertName}
 		if err := r.Get(ctx, wfAlertNamespacedName, &wfAlert); err != nil {
@@ -163,11 +163,14 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				Link:               fmt.Sprintf("https://%s/alerts/%s", internalconfig.Props.WavefrontAPIUrl(), *alert.ID),
 				State:              alertmanagerv1alpha1.Ready,
 				AssociatedAlert: alertmanagerv1alpha1.AssociatedAlert{
-					CR: alertName,
+					CR:         alertName,
+					Generation: wfAlert.Status.ObservedGeneration,
 				},
 				AssociatedAlertsConfig: alertmanagerv1alpha1.AssociatedAlertsConfig{
 					CR: alertsConfig.Name,
 				},
+				LastUpdatedTimestamp: metav1.Now(),
+				ErrorDescription:     "",
 			}
 			if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, alertmanagerv1alpha1.Ready, &wfAlert, &alertsConfig, alertStatus); err != nil {
 				log.Error(err, "unable to patch wfalert and alertsconfig status objects")
@@ -194,7 +197,10 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 			alertStatus := alertHashMap[alertName]
 			alertStatus.LastChangeChecksum = reqChecksum
-
+			// Update the individual alert status state to be ready and cleanup the error message
+			alertStatus.State = alertmanagerv1alpha1.Ready
+			alertStatus.AssociatedAlert.Generation = wfAlert.Status.ObservedGeneration
+			alertStatus.ErrorDescription = ""
 			if err := r.CommonClient.PatchWfAlertAndAlertsConfigStatus(ctx, alertmanagerv1alpha1.Ready, &wfAlert, &alertsConfig, alertStatus); err != nil {
 				log.Error(err, "unable to patch wfalert and alertsconfig status objects")
 				return r.PatchIndividualAlertsConfigError(ctx, &alertsConfig, alertName, alertmanagerv1alpha1.Error, err)
@@ -221,6 +227,7 @@ func (r *AlertsConfigReconciler) HandleIndividalAlertConfigRemoval(ctx context.C
 	tempStatusConfig := updatedAlertsConfig.Status.AlertsStatus
 	tempState := updatedAlertsConfig.Status.State
 	var toBeDeleted []string
+	areAlertsReady := true
 
 	for key, status := range updatedAlertsConfig.Status.AlertsStatus {
 		// This is for sure delete use case
@@ -235,6 +242,7 @@ func (r *AlertsConfigReconciler) HandleIndividalAlertConfigRemoval(ctx context.C
 		} else {
 			if status.State == alertmanagerv1alpha1.Error {
 				tempState = alertmanagerv1alpha1.Error
+				areAlertsReady = false
 			}
 		}
 	}
@@ -245,6 +253,10 @@ func (r *AlertsConfigReconciler) HandleIndividalAlertConfigRemoval(ctx context.C
 	// update the count
 	updatedAlertsConfig.Status.AlertsCount = len(updatedAlertsConfig.Spec.Alerts)
 	updatedAlertsConfig.Status.AlertsStatus = tempStatusConfig
+	// reset the retry count if all the alerts are Ready
+	if areAlertsReady {
+		updatedAlertsConfig.Status.RetryCount = 0
+	}
 	// update the status
 	return r.CommonClient.UpdateStatus(ctx, &updatedAlertsConfig, tempState, errRequeueTime)
 }
@@ -289,6 +301,8 @@ func (r *AlertsConfigReconciler) PatchIndividualAlertsConfigError(ctx context.Co
 	log = log.WithValues("alertsConfig_cr", alertsConfig.Name, "namespace", alertsConfig.Namespace)
 	alertStatus := alertsConfig.Status.AlertsStatus[alertName]
 	alertStatus.State = state
+	alertStatus.ErrorDescription = err.Error()
+	alertStatus.LastUpdatedTimestamp = metav1.Now()
 	alertStatusBytes, _ := json.Marshal(alertStatus)
 	retryCount := alertsConfig.Status.RetryCount + 1
 	log.Error(err, "error occured in alerts config for alert name", "alertName", alertName)

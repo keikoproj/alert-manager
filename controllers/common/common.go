@@ -3,6 +3,7 @@ package common
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	alertmanagerv1alpha1 "github.com/keikoproj/alert-manager/api/v1alpha1"
 	"github.com/keikoproj/alert-manager/internal/template"
@@ -10,6 +11,7 @@ import (
 	"github.com/keikoproj/alert-manager/pkg/log"
 	"github.com/keikoproj/alert-manager/pkg/wavefront"
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"reflect"
@@ -153,6 +155,14 @@ func GetProcessedWFAlert(ctx context.Context, wfAlert *alertmanagerv1alpha1.Wave
 		return err
 	}
 
+	//standalone alert
+	if len(wfAlert.Spec.ExportedParams) == 0 {
+		errMsg := "cannot use standalone alert with alertsconfig. must have exportedParams in wavefrontalert cr"
+		err := errors.New(errMsg)
+		log.Error(err, errMsg)
+		return err
+	}
+
 	// merge wavefront alert default values and alert config map values
 	params = utils.MergeMaps(ctx, wfAlert.Spec.ExportedParamsDefaultValues, params)
 	if err := wavefront.ValidateTemplateParams(ctx, wfAlert.Spec.ExportedParams, params); err != nil {
@@ -197,7 +207,7 @@ func (r *Client) PatchWfAlertAndAlertsConfigStatus(
 ) error {
 	log := log.Logger(ctx, "controllers", "common", "PatchWfAlertAndAlertsConfigStatus")
 	log = log.WithValues("wfAlertCR", wfAlert.Name, "alertsConfigCR", alertsConfig.Name)
-
+	alertStatus.LastUpdatedTimestamp = metav1.Now()
 	alertStatusBytes, _ := json.Marshal(alertStatus)
 	patch := []byte(fmt.Sprintf("{\"status\":{\"state\": \"%s\", \"alertsStatus\":{\"%s\":%s}}}", state, wfAlert.Name, string(alertStatusBytes)))
 	_, err := r.PatchStatus(ctx, alertsConfig, client.RawPatch(types.MergePatchType, patch), state, requeueTime...)

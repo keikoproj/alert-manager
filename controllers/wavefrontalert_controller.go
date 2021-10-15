@@ -29,6 +29,7 @@ import (
 	"github.com/keikoproj/alert-manager/pkg/log"
 	"github.com/keikoproj/alert-manager/pkg/wavefront"
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -61,8 +62,8 @@ type WavefrontAlertReconciler struct {
 	WavefrontClient wavefront.Interface
 }
 
-//+kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create
-//+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;
+//+kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch
+//+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
 //+kubebuilder:rbac:groups=alertmanager.keikoproj.io,resources=wavefrontalerts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=alertmanager.keikoproj.io,resources=wavefrontalerts/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=alertmanager.keikoproj.io,resources=wavefrontalerts/finalizers,verbs=update
@@ -293,6 +294,8 @@ func (r *WavefrontAlertReconciler) PatchIndividualAlertsStatusError(ctx context.
 	log = log.WithValues("alertsConfig_cr", wfAlert.Name, "namespace", wfAlert.Namespace)
 	alertStatus := wfAlert.Status.AlertsStatus[alertName]
 	alertStatus.State = state
+	alertStatus.ErrorDescription = err.Error()
+	alertStatus.LastUpdatedTimestamp = metav1.Now()
 	alertStatusBytes, _ := json.Marshal(alertStatus)
 	retryCount := wfAlert.Status.RetryCount + 1
 	log.Error(err, "error occured in alerts config for alert name", "alertName", alertName)

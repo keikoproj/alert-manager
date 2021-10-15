@@ -113,7 +113,7 @@ type WavefrontAlertStatus struct {
 	//State of the resource
 	State State `json:"state,omitempty"`
 	//RetryCount in case of error
-	RetryCount int `json:"retryCount,omitempty"`
+	RetryCount int `json:"retryCount"`
 	//ErrorDescription in case of error
 	ErrorDescription string `json:"errorDescription,omitempty"`
 	//Checksum of the exportedParams if exists
@@ -135,6 +135,10 @@ type AlertStatus struct {
 	LastChangeChecksum     string                 `json:"lastChangeChecksum,omitempty"`
 	AssociatedAlert        AssociatedAlert        `json:"associatedAlert,omitempty"`
 	AssociatedAlertsConfig AssociatedAlertsConfig `json:"associatedAlertsConfig,omitempty"`
+	ErrorDescription       string                 `json:"errorDescription"`
+	//LastUpdatedTimestamp represents the last time the alert has been modified
+	// +optional
+	LastUpdatedTimestamp metav1.Time `json:"lastUpdatedTimestamp,omitempty"`
 }
 
 type AssociatedAlertsConfig struct {
@@ -143,7 +147,10 @@ type AssociatedAlertsConfig struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-
+// +kubebuilder:resource:path=wavefrontalerts,scope=Namespaced,shortName=wfalerts,singular=wavefrontalert
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="current state of the wavefront alert"
+// +kubebuilder:printcolumn:name="RetryCount",type="integer",JSONPath=".status.retryCount",description="Retry count"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="time passed since wavefront alert creation"
 // WavefrontAlert is the Schema for the wavefrontalerts API
 type WavefrontAlert struct {
 	metav1.TypeMeta   `json:",inline"`

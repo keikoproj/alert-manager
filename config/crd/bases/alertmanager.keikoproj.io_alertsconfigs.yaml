@@ -16,7 +16,20 @@ spec:
     singular: alertsconfig
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: current state of the alerts config
+      jsonPath: .status.state
+      name: State
+      type: string
+    - description: Retry count
+      jsonPath: .status.retryCount
+      name: RetryCount
+      type: integer
+    - description: time passed since alerts config creation
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: AlertsConfig is the Schema for the alertsconfigs API
@@ -113,15 +126,25 @@ spec:
                       properties:
                         CR:
                           type: string
+                        generation:
+                          format: int64
+                          type: integer
                       type: object
                     associatedAlertsConfig:
                       properties:
                         CR:
                           type: string
                       type: object
+                    errorDescription:
+                      type: string
                     id:
                       type: string
                     lastChangeChecksum:
+                      type: string
+                    lastUpdatedTimestamp:
+                      description: LastUpdatedTimestamp represents the last time the
+                        alert has been modified
+                      format: date-time
                       type: string
                     link:
                       type: string
@@ -129,6 +152,7 @@ spec:
                       type: string
                   required:
                   - alertName
+                  - errorDescription
                   - id
                   type: object
                 description: AlertsStatus details includes individual alert details
@@ -142,6 +166,8 @@ spec:
               state:
                 description: State of the resource
                 type: string
+            required:
+            - retryCount
             type: object
         type: object
     served: true
