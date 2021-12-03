@@ -28,6 +28,9 @@ func ConvertAlertCRToWavefrontRequest(ctx context.Context, req v1alpha1.Wavefron
 	alert.Minutes = int(*req.Minutes)
 	alert.ResolveAfterMinutes = int(*req.ResolveAfter)
 	alert.Target = req.Target
+	if req.AlertCheckFrequency != 0 {
+		alert.CheckingFrequencyInMinutes = req.AlertCheckFrequency
+	}
 	log.V(1).Info("alert conversion is successful")
 	return nil
 }

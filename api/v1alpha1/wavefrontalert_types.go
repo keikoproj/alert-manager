@@ -80,6 +80,10 @@ type WavefrontAlertSpec struct {
 	// wants to use go lang template for a field but majority of the alerts can use the default values instead of providing in each and every alert config files.
 	// +optional
 	ExportedParamsDefaultValues OrderedMap `json:"exportedParamsDefaultValues,omitempty"`
+
+	//AlertCheckFrequency can be used to provide a different alert check frequency then the default 1min. Optional. This is in minutes
+	// +optional
+	AlertCheckFrequency int `json:"alertCheckFrequency,omitempty"`
 }
 
 // AlertType represents the type of the Alert in Wavefront. Defaults to CLASSIC alert
