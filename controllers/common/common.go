@@ -209,13 +209,15 @@ func (r *Client) PatchWfAlertAndAlertsConfigStatus(
 	log = log.WithValues("wfAlertCR", wfAlert.Name, "alertsConfigCR", alertsConfig.Name)
 	alertStatus.LastUpdatedTimestamp = metav1.Now()
 	alertStatusBytes, _ := json.Marshal(alertStatus)
-	patch := []byte(fmt.Sprintf("{\"status\":{\"state\": \"%s\", \"alertsStatus\":{\"%s\":%s}}}", state, wfAlert.Name, string(alertStatusBytes)))
+	retryCount := alertsConfig.Status.RetryCount
+	patch := []byte(fmt.Sprintf("{\"status\":{\"state\": \"%s\", \"retryCount\": %d, \"alertsStatus\":{\"%s\":%s}}}", state, retryCount, wfAlert.Name, string(alertStatusBytes)))
 	_, err := r.PatchStatus(ctx, alertsConfig, client.RawPatch(types.MergePatchType, patch), state, requeueTime...)
 	if err != nil {
 		log.Error(err, "unable to patch the status for alerts config object")
 		return err
 	}
-	wfAlertStatusPatch := []byte(fmt.Sprintf("{\"status\":{\"state\": \"%s\",\"alertsStatus\":{\"%s\":%s}}}", state, alertsConfig.Name, string(alertStatusBytes)))
+	wfRetryCount := wfAlert.Status.RetryCount
+	wfAlertStatusPatch := []byte(fmt.Sprintf("{\"status\":{\"state\": \"%s\", \"retryCount\": %d,\"alertsStatus\":{\"%s\":%s}}}", state, wfRetryCount, alertsConfig.Name, string(alertStatusBytes)))
 	if err != nil {
 		log.Error(err, "unable to patch the status for wavefront alert object")
 		return err
