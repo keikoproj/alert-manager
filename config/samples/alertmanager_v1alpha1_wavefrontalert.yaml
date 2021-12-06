@@ -9,7 +9,7 @@ spec:
   condition: ts(status.health)
   displayExpression: ts(status.health)
   minutes: 5
-  resolveAfterMinutes: 5
+  resolveAfterMinutes: 50
   severity: severe
   tags:
     - test-alert

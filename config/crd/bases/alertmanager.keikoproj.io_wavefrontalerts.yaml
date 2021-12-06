@@ -54,6 +54,11 @@ spec:
               additionalInformation:
                 description: Any additional information, such as a link to a run book.
                 type: string
+              alertCheckFrequency:
+                description: AlertCheckFrequency can be used to provide a different
+                  alert check frequency then the default 1min. Optional. This is in
+                  minutes
+                type: integer
               alertName:
                 description: Name of the alert to be created in Wavefront
                 type: string
