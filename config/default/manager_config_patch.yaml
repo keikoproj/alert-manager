@@ -11,10 +11,10 @@ spec:
         args:
         - "--config=controller_manager_config.yaml"
         volumeMounts:
-        - name: manager-config
+        - name: config
           mountPath: /controller_manager_config.yaml
           subPath: controller_manager_config.yaml
       volumes:
-      - name: manager-config
+      - name: config
         configMap:
-          name: manager-config
+          name: config
