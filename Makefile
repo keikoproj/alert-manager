@@ -57,7 +57,7 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 mock:
-	go get -u github.com/golang/mock/mockgen
+	go install github.com/golang/mock/mockgen@v1.6.0
 	@echo "mockgen is in progess"
 	@for pkg in $(shell go list ./...) ; do \
 		go generate ./... ;\
