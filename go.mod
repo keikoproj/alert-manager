@@ -1,6 +1,6 @@
 module github.com/keikoproj/alert-manager
 
-go 1.18
+go 1.19
 
 require (
 	github.com/WavefrontHQ/go-wavefront-management-api v1.14.2
