@@ -13,7 +13,7 @@ type Client struct {
 
 var ApiToken string
 
-//NewClient returns new client instance for wavefront api with given configuration
+// NewClient returns new client instance for wavefront api with given configuration
 func NewClient(ctx context.Context, config *wf.Config) (*Client, error) {
 	wFClient, err := wf.NewClient(config)
 	if err != nil {
@@ -22,7 +22,7 @@ func NewClient(ctx context.Context, config *wf.Config) (*Client, error) {
 	return &Client{client: wFClient}, nil
 }
 
-//CreateOrUpdateWavefrontAlert creates/update a wavefront alert
+// CreateOrUpdateWavefrontAlert creates/update a wavefront alert
 func (w *Client) CreateAlert(ctx context.Context, alert *wf.Alert) error {
 	log := log.Logger(ctx, "pkg.wavefront", "CreateAlert")
 	log.V(1).Info("create wavefront alert request")

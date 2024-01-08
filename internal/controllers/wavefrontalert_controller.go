@@ -22,25 +22,26 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
+
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/keikoproj/alert-manager/internal/config"
 	"github.com/keikoproj/alert-manager/internal/utils"
 	"github.com/keikoproj/alert-manager/pkg/log"
 	"github.com/keikoproj/alert-manager/pkg/wavefront"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 
 	wf "github.com/WavefrontHQ/go-wavefront-management-api"
 	_ "github.com/golang/mock/mockgen/model"
 	alertmanagerv1alpha1 "github.com/keikoproj/alert-manager/api/v1alpha1"
-	controllercommon "github.com/keikoproj/alert-manager/controllers/common"
+	controllercommon "github.com/keikoproj/alert-manager/internal/controllers/common"
 )
 
 const (
@@ -287,7 +288,7 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	return r.CommonClient.UpdateStatus(ctx, &wfAlert, wfAlert.Status.State, errRequeueTime)
 }
 
-//PatchIndividualAlertsStatusError function is a utility function to patch the error status
+// PatchIndividualAlertsStatusError function is a utility function to patch the error status
 // We use status patch instead of status update to avoid any overwrite between two threads when alertsConfig CR has multiple alert configs
 func (r *WavefrontAlertReconciler) PatchIndividualAlertsStatusError(ctx context.Context, wfAlert *alertmanagerv1alpha1.WavefrontAlert, alertName string, state alertmanagerv1alpha1.State, err error, requeueTime ...float64) (ctrl.Result, error) {
 	log := log.Logger(ctx, "controllers", "alertsconfig_controller", "PatchIndividualAlertsStatusError")
@@ -305,7 +306,7 @@ func (r *WavefrontAlertReconciler) PatchIndividualAlertsStatusError(ctx context.
 	return r.CommonClient.PatchStatus(ctx, wfAlert, client.RawPatch(types.MergePatchType, patch), alertmanagerv1alpha1.Error, errRequeueTime)
 }
 
-//HandleDelete function handles the deleting wavefront alerts
+// HandleDelete function handles the deleting wavefront alerts
 func (r *WavefrontAlertReconciler) HandleDelete(ctx context.Context, wfAlert *alertmanagerv1alpha1.WavefrontAlert) error {
 	log := log.Logger(ctx, "controllers", "wavefrontalert_controller", "HandleDelete")
 	log = log.WithValues("wavefrontalert_cr", wfAlert.Name, "namespace", wfAlert.Namespace)
@@ -335,7 +336,7 @@ func (r *WavefrontAlertReconciler) HandleDelete(ctx context.Context, wfAlert *al
 	return nil
 }
 
-//convertAlertCR converts alert CR to wf.Alert
+// convertAlertCR converts alert CR to wf.Alert
 func (r *WavefrontAlertReconciler) convertAlertCR(ctx context.Context, wfAlert *alertmanagerv1alpha1.WavefrontAlert, alert *wf.Alert) {
 	log := log.Logger(ctx, "controllers", "wavefrontalert_controller", "convertAlertCR")
 	log = log.WithValues("wavefrontalert_cr", wfAlert.Name, "namespace", wfAlert.Namespace)

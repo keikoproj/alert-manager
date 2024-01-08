@@ -8,7 +8,7 @@ import (
 	"github.com/keikoproj/alert-manager/pkg/log"
 )
 
-//ConvertAlertCRToWavefrontRequest function converts wavefront alert spec to Alert API input request
+// ConvertAlertCRToWavefrontRequest function converts wavefront alert spec to Alert API input request
 func ConvertAlertCRToWavefrontRequest(ctx context.Context, req v1alpha1.WavefrontAlertSpec, alert *wf.Alert) error {
 	log := log.Logger(ctx, "pkg.wavefront", "ConvertAlertCRToWavefrontRequest")
 	log.V(1).Info("converting alert spec to wavefront api request")

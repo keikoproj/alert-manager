@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-//ExportParamsChecksum function calculates checksum if exportParams is not empty
+// ExportParamsChecksum function calculates checksum if exportParams is not empty
 func ExportParamsChecksum(ctx context.Context, exportedParams []string) (bool, string) {
 	log := log.Logger(ctx, "internal.utils", "util", "ExportParamsChecksum")
 	if len(exportedParams) == 0 {
@@ -20,7 +20,7 @@ func ExportParamsChecksum(ctx context.Context, exportedParams []string) (bool, s
 	return true, calculateChecksum(ctx, strings.Join(exportedParams, ""))
 }
 
-//CalculateAlertConfigChecksum function calculates hash value for Alert Config
+// CalculateAlertConfigChecksum function calculates hash value for Alert Config
 func CalculateAlertConfigChecksum(ctx context.Context, input v1alpha1.Config, global v1alpha1.OrderedMap) (bool, string) {
 	log := log.Logger(ctx, "internal.utils", "util", "CalculateAlertConfigChecksum")
 
@@ -35,7 +35,7 @@ func CalculateAlertConfigChecksum(ctx context.Context, input v1alpha1.Config, gl
 	return true, calculateChecksum(ctx, string(jsonData))
 }
 
-//MergeMaps function used to merge two maps i.e, baseParams fields gets overwritten by overwriteParams if exists
+// MergeMaps function used to merge two maps i.e, baseParams fields gets overwritten by overwriteParams if exists
 func MergeMaps(ctx context.Context, baseParams map[string]string, overwriteParams map[string]string) map[string]string {
 	log := log.Logger(ctx, "internal.utils", "util", "MergeMaps")
 	log.V(4).Info("merging maps")
@@ -52,12 +52,12 @@ func MergeMaps(ctx context.Context, baseParams map[string]string, overwriteParam
 	return globalMap
 }
 
-//CalculateChecksum is an exported function
+// CalculateChecksum is an exported function
 func CalculateChecksum(ctx context.Context, input string) string {
 	return calculateChecksum(ctx, input)
 }
 
-//calculateChecksum function calculates checksum for the given string
+// calculateChecksum function calculates checksum for the given string
 func calculateChecksum(ctx context.Context, input string) string {
 	log := log.Logger(ctx, "internal.utils", "util", "calculateChecksum")
 	log.V(4).Info("calculating checksum", "input", input)
@@ -65,7 +65,7 @@ func calculateChecksum(ctx context.Context, input string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-//ContainsString  Helper functions to check from a slice of strings.
+// ContainsString  Helper functions to check from a slice of strings.
 func ContainsString(slice []string, s string) bool {
 	for _, item := range slice {
 		if item == s {
@@ -75,7 +75,7 @@ func ContainsString(slice []string, s string) bool {
 	return false
 }
 
-//RemoveString Helper function to check remove string
+// RemoveString Helper function to check remove string
 func RemoveString(slice []string, s string) (result []string) {
 	for _, item := range slice {
 		if item == s {

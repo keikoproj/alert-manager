@@ -37,7 +37,7 @@ import (
 
 	wf "github.com/WavefrontHQ/go-wavefront-management-api"
 	alertmanagerv1alpha1 "github.com/keikoproj/alert-manager/api/v1alpha1"
-	controllercommon "github.com/keikoproj/alert-manager/controllers/common"
+	controllercommon "github.com/keikoproj/alert-manager/internal/controllers/common"
 )
 
 const (
@@ -214,7 +214,7 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	return r.HandleIndividalAlertConfigRemoval(ctx, req.NamespacedName)
 }
 
-//HandleIndividalAlertConfigRemoval function handles if there is any config got removed from the spec, if so- delete that alert in wavefront and also update the status
+// HandleIndividalAlertConfigRemoval function handles if there is any config got removed from the spec, if so- delete that alert in wavefront and also update the status
 func (r *AlertsConfigReconciler) HandleIndividalAlertConfigRemoval(ctx context.Context, namespacedName types.NamespacedName) (ctrl.Result, error) {
 	log := log.Logger(ctx, "controllers", "alertsconfig_controller", "HandleIndividalAlertConfigRemoval")
 	log = log.WithValues("alertsConfig_cr", namespacedName)
@@ -261,7 +261,7 @@ func (r *AlertsConfigReconciler) HandleIndividalAlertConfigRemoval(ctx context.C
 	return r.CommonClient.UpdateStatus(ctx, &updatedAlertsConfig, tempState, errRequeueTime)
 }
 
-//DeleteIndividualAlert function deletes individual alert and also patches the status on both wavefront alert and also alerts config status
+// DeleteIndividualAlert function deletes individual alert and also patches the status on both wavefront alert and also alerts config status
 func (r *AlertsConfigReconciler) DeleteIndividualAlert(ctx context.Context, alertName string, alertStatus alertmanagerv1alpha1.AlertStatus, namespace string) error {
 	log := log.Logger(ctx, "controllers", "alertsconfig_controller", "DeleteIndividualAlert")
 	log = log.WithValues("alertsConfig_cr", alertName)
@@ -294,7 +294,7 @@ func (r *AlertsConfigReconciler) DeleteIndividualAlert(ctx context.Context, aler
 	return nil
 }
 
-//PatchIndividualAlertsConfigError function is a utility function to patch the error status
+// PatchIndividualAlertsConfigError function is a utility function to patch the error status
 // We use status patch instead of status update to avoid any overwrite between two threads when alertsConfig CR has multiple alert configs
 func (r *AlertsConfigReconciler) PatchIndividualAlertsConfigError(ctx context.Context, alertsConfig *alertmanagerv1alpha1.AlertsConfig, alertName string, state alertmanagerv1alpha1.State, err error, requeueTime ...float64) (ctrl.Result, error) {
 	log := log.Logger(ctx, "controllers", "alertsconfig_controller", "PatchIndividualAlertsConfigError")
@@ -312,7 +312,7 @@ func (r *AlertsConfigReconciler) PatchIndividualAlertsConfigError(ctx context.Co
 	return r.CommonClient.PatchStatus(ctx, alertsConfig, client.RawPatch(types.MergePatchType, patch), alertmanagerv1alpha1.Error, errRequeueTime)
 }
 
-//HandleDelete function handles the deleting wavefront alerts
+// HandleDelete function handles the deleting wavefront alerts
 func (r *AlertsConfigReconciler) HandleDelete(ctx context.Context, alertsConfig *alertmanagerv1alpha1.AlertsConfig) error {
 	log := log.Logger(ctx, "controllers", "alertsconfig_controller", "HandleDelete")
 	log = log.WithValues("alertsConfig_cr", alertsConfig.Name, "namespace", alertsConfig.Namespace)

@@ -3,15 +3,16 @@ package common_test
 import (
 	"context"
 	"fmt"
+	"time"
+
 	wf "github.com/WavefrontHQ/go-wavefront-management-api"
 	alertmanagerv1alpha1 "github.com/keikoproj/alert-manager/api/v1alpha1"
-	"github.com/keikoproj/alert-manager/controllers/common"
+	"github.com/keikoproj/alert-manager/internal/controllers/common"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 var _ = Describe("Common", func() {

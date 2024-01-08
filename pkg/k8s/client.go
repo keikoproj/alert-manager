@@ -15,7 +15,7 @@ type Client struct {
 	runtimeClient client.Client
 }
 
-//NewK8sSelfClientDoOrDie gets the new k8s go client
+// NewK8sSelfClientDoOrDie gets the new k8s go client
 func NewK8sSelfClientDoOrDie() *Client {
 	config, err := rest.InClusterConfig()
 	if err != nil {

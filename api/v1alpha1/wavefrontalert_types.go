@@ -130,7 +130,7 @@ type WavefrontAlertStatus struct {
 	AlertsStatus map[string]AlertStatus `json:"alertsStatus,omitempty"`
 }
 
-//AlertStatus consists of individual alert details
+// AlertStatus consists of individual alert details
 type AlertStatus struct {
 	ID                     string                 `json:"id"`
 	Name                   string                 `json:"alertName"`
@@ -149,8 +149,8 @@ type AssociatedAlertsConfig struct {
 	CR string `json:"CR,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:resource:path=wavefrontalerts,scope=Namespaced,shortName=wfalerts,singular=wavefrontalert
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="current state of the wavefront alert"
 // +kubebuilder:printcolumn:name="RetryCount",type="integer",JSONPath=".status.retryCount",description="Retry count"

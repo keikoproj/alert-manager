@@ -69,8 +69,8 @@ type Client struct {
 	Recorder record.EventRecorder
 }
 
-//UpdateMeta function updates the metadata (mostly finalizers in this case)
-//This function accepts runtime.Object which can be either cluster type or namespace type
+// UpdateMeta function updates the metadata (mostly finalizers in this case)
+// This function accepts runtime.Object which can be either cluster type or namespace type
 func (r *Client) UpdateMeta(ctx context.Context, object client.Object) {
 	log := log.Logger(ctx, "controllers.common", "UpdateMeta")
 	if err := r.Update(ctx, object); err != nil {
@@ -80,7 +80,7 @@ func (r *Client) UpdateMeta(ctx context.Context, object client.Object) {
 	log.Info("successfully updated the meta")
 }
 
-//UpdateStatus function updates the status based on the process step
+// UpdateStatus function updates the status based on the process step
 func (r *Client) UpdateStatus(ctx context.Context, obj client.Object, state alertmanagerv1alpha1.State, requeueTime ...float64) (ctrl.Result, error) {
 	log := log.Logger(ctx, "controllers.common", "common", "UpdateStatus")
 
@@ -103,7 +103,7 @@ func (r *Client) UpdateStatus(ctx context.Context, obj client.Object, state aler
 	return ctrl.Result{RequeueAfter: time.Duration(requeueTime[0]) * time.Millisecond}, nil
 }
 
-//PatchStatus function patches the status based on the process step
+// PatchStatus function patches the status based on the process step
 func (r *Client) PatchStatus(ctx context.Context, obj client.Object, patch client.Patch, state alertmanagerv1alpha1.State, requeueTime ...float64) (ctrl.Result, error) {
 	log := log.Logger(ctx, "controllers.common", "common", "PatchStatus")
 
@@ -126,7 +126,7 @@ func (r *Client) PatchStatus(ctx context.Context, obj client.Object, patch clien
 	return ctrl.Result{RequeueAfter: time.Duration(requeueTime[0]) * time.Millisecond}, nil
 }
 
-//ConvertAlertCR converts alert CR to wf.Alert
+// ConvertAlertCR converts alert CR to wf.Alert
 func (r *Client) ConvertAlertCR(ctx context.Context, wfAlert *alertmanagerv1alpha1.WavefrontAlert, alert *wf.Alert) {
 	log := log.Logger(ctx, "controllers", "wavefrontalert_controller", "convertAlertCR")
 	//log = log.WithValues("wavefrontalert_cr", wfAlert.Name, "namespace", wfAlert.Namespace)
@@ -144,7 +144,7 @@ func (r *Client) ConvertAlertCR(ctx context.Context, wfAlert *alertmanagerv1alph
 	}
 }
 
-//GetProcessedWFAlert function converts wavefront alert spec to wavefront api request by processing template with the values provided in alerts config
+// GetProcessedWFAlert function converts wavefront alert spec to wavefront api request by processing template with the values provided in alerts config
 func GetProcessedWFAlert(ctx context.Context, wfAlert *alertmanagerv1alpha1.WavefrontAlert, params map[string]string, alert *wf.Alert) error {
 	log := log.Logger(ctx, "controllers", "common", "GetProcessedWFAlert")
 	log = log.WithValues("alertsConfig_cr", wfAlert.Name)
@@ -196,7 +196,7 @@ func GetProcessedWFAlert(ctx context.Context, wfAlert *alertmanagerv1alpha1.Wave
 	return nil
 }
 
-//PatchWfAlertAndAlertsConfigStatus function patches the individual alert status for both wavefront alert and alerts config
+// PatchWfAlertAndAlertsConfigStatus function patches the individual alert status for both wavefront alert and alerts config
 func (r *Client) PatchWfAlertAndAlertsConfigStatus(
 	ctx context.Context,
 	state alertmanagerv1alpha1.State,

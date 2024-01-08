@@ -2,6 +2,7 @@ package log
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -11,7 +12,7 @@ import (
 
 //Get the request id
 
-//New function sets the logging level based on the flag and also sets it with controller
+// New function sets the logging level based on the flag and also sets it with controller
 func New(debug ...bool) {
 	enabled := false
 	if len(debug) == 0 {
@@ -24,9 +25,9 @@ func New(debug ...bool) {
 	}))
 }
 
-//Logger with
+// Logger with
 func Logger(ctx context.Context, names ...string) logr.Logger {
-	logk := ctrl.Log.Logger
+	logk := ctrl.Log
 	for _, name := range names {
 		logk = logk.WithName(name)
 	}

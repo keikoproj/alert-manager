@@ -37,7 +37,7 @@ type AlertsConfigSpec struct {
 	GlobalParams OrderedMap `json:"globalParams,omitempty"`
 }
 
-//GVK struct represents the alert type and can be used as a global as well as in individual alert section
+// GVK struct represents the alert type and can be used as a global as well as in individual alert section
 type GVK struct {
 	//Group - CRD Group name which this config/s is related to
 	Group string `json:"group,omitempty"`
@@ -47,7 +47,7 @@ type GVK struct {
 	Kind string `json:"kind,omitempty"`
 }
 
-//Config section provides the AlertsConfig for each individual alert
+// Config section provides the AlertsConfig for each individual alert
 // +optional
 type Config struct {
 	//GVK can be used to provide CRD group, version and kind- If there is a global GVK already provided this will overwrite it
@@ -77,8 +77,8 @@ type AssociatedAlert struct {
 	Generation int64  `json:"generation,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="current state of the alerts config"
 // +kubebuilder:printcolumn:name="RetryCount",type="integer",JSONPath=".status.retryCount",description="Retry count"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="time passed since alerts config creation"

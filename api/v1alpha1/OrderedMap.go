@@ -9,7 +9,7 @@ import (
 // +kubebuilder:object:generate=false
 type OrderedMap map[string]string
 
-//MarshalJSON function is a custom implementation of json.Marshal for OrderedMap
+// MarshalJSON function is a custom implementation of json.Marshal for OrderedMap
 func (s OrderedMap) MarshalJSON() ([]byte, error) {
 	m := treemap.NewWithStringComparator()
 
@@ -20,7 +20,7 @@ func (s OrderedMap) MarshalJSON() ([]byte, error) {
 	return m.ToJSON()
 }
 
-//UnmarshalJson function is a custom implementation of json to unmarshal OrderedMap
+// UnmarshalJson function is a custom implementation of json to unmarshal OrderedMap
 func (s *OrderedMap) UnmarshalJSON(b []byte) error {
 	// Just regular unmarshal into map[string]string should work fine
 	var foo map[string]string
