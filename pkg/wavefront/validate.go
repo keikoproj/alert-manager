@@ -9,7 +9,7 @@ import (
 	"github.com/keikoproj/alert-manager/pkg/log"
 )
 
-//ValidateAlertInput validates alert inputs
+// ValidateAlertInput validates alert inputs
 func ValidateAlertInput(ctx context.Context, input *wavefront.Alert) error {
 	log := log.Logger(ctx, "pkg.wavefront", "validateAlertInput")
 	log.V(1).Info("validating input request")
@@ -64,7 +64,7 @@ func validateAlertConditions(ctx context.Context, input *wavefront.Alert) error 
 	return nil
 }
 
-//validateThresholdLevels validates threshold values included in the request
+// validateThresholdLevels validates threshold values included in the request
 func validateThresholdLevels(ctx context.Context, m map[string]string) error {
 	log := log.Logger(ctx, "pkg.wavefront", "validateThresholdLevels")
 	log.V(1).Info("validating threshold values")
@@ -93,7 +93,7 @@ func validateSeverity(ctx context.Context, key string) error {
 	return nil
 }
 
-//ValidateTemplateParams function validates whether all the required template exported params been supplied in alert config
+// ValidateTemplateParams function validates whether all the required template exported params been supplied in alert config
 func ValidateTemplateParams(ctx context.Context, exportParams []string, configValues map[string]string) error {
 	log := log.Logger(ctx, "pkg.wavefront", "validateTemplateParams")
 	log.V(1).Info("validating export params with config params")

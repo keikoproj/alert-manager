@@ -2,14 +2,28 @@
 # Image URL to use all building/pushing image targets
 IMG ?=  keikoproj/alert-manager:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
+CRD_OPTIONS ?= "crd"
 
 # Tools required to run the full suite of tests properly
 OSNAME           ?= $(shell uname -s | tr A-Z a-z)
 KUBEBUILDER_VER  ?= 3.0.0
 KUBEBUILDER_ARCH ?= amd64
+ENVTEST_K8S_VERSION = 1.28.0
 
-LOCAL  ?= true
+KUBECONFIG                  ?= $(HOME)/.kube/config
+LOCAL                       ?= true
+RESTRICTED_POLICY_RESOURCES ?= policy-resource
+RESTRICTED_S3_RESOURCES     ?= s3-resource
+AWS_ACCOUNT_ID              ?= 123456789012
+AWS_REGION                  ?= us-west-2
+CLUSTER_NAME                ?= k8s_test_keiko
+CLUSTER_OIDC_ISSUER_URL     ?= https://google.com/OIDC
+
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+
+ENVTEST ?= $(LOCALBIN)/setup-envtest
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -64,18 +78,25 @@ mock:
 	done
 
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
-test: mock manifests generate fmt vet ## Run tests.
-	mkdir -p ${ENVTEST_ASSETS_DIR}
-	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.2/hack/setup-envtest.sh
-	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); LOCAL=$(LOCAL) go test ./... -coverprofile cover.out
+test: mock manifests generate fmt vet envtest ## Run tests.
+	KUBECONFIG=$(KUBECONFIG) \
+	LOCAL=$(LOCAL) \
+	RESTRICTED_POLICY_RESOURCES=$(RESTRICTED_POLICY_RESOURCES) \
+	RESTRICTED_S3_RESOURCES=$(RESTRICTED_S3_RESOURCES) \
+	AWS_ACCOUNT_ID=$(AWS_ACCOUNT_ID) \
+	AWS_REGION=$(AWS_REGION) \
+	CLUSTER_NAME=$(CLUSTER_NAME) \
+	CLUSTER_OIDC_ISSUER_URL="$(CLUSTER_OIDC_ISSUER_URL)" \
+	DEFAULT_TRUST_POLICY=$(DEFAULT_TRUST_POLICY) \
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
 
 ##@ Build
 
 build: mock generate fmt vet ## Build manager binary.
-	go build -o bin/manager main.go
+	go build -o bin/manager cmd/main.go
 
 run: manifests generate fmt vet ## Run a controller from your host.
-	go run ./main.go
+	go run cmd/main.go
 
 docker-build: test ## Build docker image with the manager.
 	docker build -t ${IMG} .
@@ -101,7 +122,7 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.1)
+	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.13.0)
 
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
@@ -121,10 +142,7 @@ rm -rf $$TMP_DIR ;\
 }
 endef
 
-
-.PHONY: kubebuilder
-kubebuilder:
-	@echo "Downloading and installing Kubebuilder - this requires sudo privileges"
-	curl -fsSL -O "https://github.com/kubernetes-sigs/kubebuilder/releases/download/v$(KUBEBUILDER_VER)/kubebuilder_$(OSNAME)_$(KUBEBUILDER_ARCH)"
-	chmod +x kubebuilder_$(OSNAME)_$(KUBEBUILDER_ARCH) && sudo mv kubebuilder_$(OSNAME)_$(KUBEBUILDER_ARCH) /usr/local/bin/
-
+.PHONY: envtest
+envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
+$(ENVTEST): $(LOCALBIN)
+	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest

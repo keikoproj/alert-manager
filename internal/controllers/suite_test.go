@@ -18,25 +18,29 @@ package controllers_test
 
 import (
 	"context"
+	"fmt"
+	"path/filepath"
+	"runtime"
+	"testing"
+
 	"github.com/golang/mock/gomock"
 	alertmanagerv1alpha1 "github.com/keikoproj/alert-manager/api/v1alpha1"
-	"github.com/keikoproj/alert-manager/controllers"
-	"github.com/keikoproj/alert-manager/controllers/common"
-	"github.com/keikoproj/alert-manager/controllers/mocks"
+	"github.com/keikoproj/alert-manager/internal/controllers"
+	"github.com/keikoproj/alert-manager/internal/controllers/common"
+	mock_wavefront "github.com/keikoproj/alert-manager/internal/controllers/mocks"
 	"github.com/keikoproj/alert-manager/pkg/k8s"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"testing"
+
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -47,13 +51,17 @@ var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
 var mockWavefront *mock_wavefront.MockInterface
+var mgrCtx context.Context
+
+// https://github.com/kubernetes-sigs/controller-runtime/issues/1571
+var cancelFunc context.CancelFunc
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	RunSpecsWithDefaultAndCustomReporters(t,
 		"Controller Suite",
-		[]Reporter{printer.NewlineReporter{}})
+		[]Reporter{})
 }
 
 var _ = BeforeSuite(func() {
@@ -61,8 +69,11 @@ var _ = BeforeSuite(func() {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
+		CRDDirectoryPaths:     []string{filepath.Join("../../", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
+
+		BinaryAssetsDirectory: filepath.Join("..", "bin", "k8s",
+			fmt.Sprintf("1.28.0-%s-%s", runtime.GOOS, runtime.GOARCH)),
 	}
 
 	cfg, err := testEnv.Start()
@@ -85,8 +96,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme.Scheme,
-		MetricsBindAddress: "0",
+		Scheme:  scheme.Scheme,
+		Metrics: metricsserver.Options{BindAddress: "0"},
 	})
 	Expect(err).ToNot(HaveOccurred())
 
@@ -113,14 +124,17 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {
-		err = k8sManager.Start(ctrl.SetupSignalHandler())
+		mgrCtx, cancelFunc = context.WithCancel(context.Background())
+		err = k8sManager.Start(mgrCtx)
 		Expect(err).ToNot(HaveOccurred())
 	}()
 
-}, 60)
+})
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
+	cancelFunc()
+
 	err := testEnv.Stop()
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 })
