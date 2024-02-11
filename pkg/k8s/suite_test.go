@@ -16,11 +16,12 @@ limitations under the License.
 package k8s
 
 import (
-	"k8s.io/client-go/kubernetes"
 	"path/filepath"
 	"testing"
 
-	. "github.com/onsi/ginkgo"
+	"k8s.io/client-go/kubernetes"
+
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	managerv1alpha1 "github.com/keikoproj/alert-manager/api/v1alpha1"
@@ -82,7 +83,7 @@ var _ = BeforeSuite(func(done Done) {
 	}
 	Expect(cl).ToNot(BeNil())
 	close(done)
-}, 60)
+})
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
