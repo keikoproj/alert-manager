@@ -2,11 +2,12 @@ package controllers_test
 
 import (
 	"context"
+	"time"
+
 	"github.com/keikoproj/alert-manager/api/v1alpha1"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/types"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

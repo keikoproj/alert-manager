@@ -2,9 +2,10 @@ package wavefront_test
 
 import (
 	"context"
+
 	"github.com/WavefrontHQ/go-wavefront-management-api"
 	wf "github.com/keikoproj/alert-manager/pkg/wavefront"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
