@@ -17,7 +17,7 @@ require (
 	sigs.k8s.io/controller-runtime v0.16.3
 )
 
-require golang.org/x/term v0.15.0 // indirect
+require golang.org/x/term v0.18.0 // indirect
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -55,9 +55,9 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.25.0 // indirect
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
-	golang.org/x/net v0.19.0 // indirect
+	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/oauth2 v0.8.0 // indirect
-	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.16.1 // indirect
