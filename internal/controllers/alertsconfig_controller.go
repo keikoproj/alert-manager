@@ -20,24 +20,24 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
+
+	wf "github.com/WavefrontHQ/go-wavefront-management-api"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
+	alertmanagerv1alpha1 "github.com/keikoproj/alert-manager/api/v1alpha1"
 	internalconfig "github.com/keikoproj/alert-manager/internal/config"
+	controllercommon "github.com/keikoproj/alert-manager/internal/controllers/common"
 	"github.com/keikoproj/alert-manager/internal/utils"
 	"github.com/keikoproj/alert-manager/pkg/log"
 	"github.com/keikoproj/alert-manager/pkg/wavefront"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
-
-	wf "github.com/WavefrontHQ/go-wavefront-management-api"
-	alertmanagerv1alpha1 "github.com/keikoproj/alert-manager/api/v1alpha1"
-	controllercommon "github.com/keikoproj/alert-manager/internal/controllers/common"
 )
 
 const (
@@ -189,6 +189,11 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				if strings.Contains(err.Error(), "Exceeded limit setting") {
 					// For ex: error is "Exceeded limit setting: 100 alerts allowed per customer"
 					state = alertmanagerv1alpha1.ClientExceededLimit
+				} else if strings.Contains(err.Error(), "server returned 404 Not Found") {
+					alertStatus := alertsConfig.Status.AlertsStatus[alertName]
+					alertStatus.ID = ""
+					alertsConfig.Status.AlertsStatus[alertName] = alertStatus // Reset the ID
+					log.Error(err, "alert doesn't exist in wavefront, so reset alertID and create a new alert")
 				}
 				log.Error(err, "unable to create the alert")
 
