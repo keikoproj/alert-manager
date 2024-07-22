@@ -2,10 +2,11 @@ package wavefront_test
 
 import (
 	"context"
+
 	wf "github.com/WavefrontHQ/go-wavefront-management-api"
 	alertmanagerv1alpha1 "github.com/keikoproj/alert-manager/api/v1alpha1"
 	"github.com/keikoproj/alert-manager/pkg/wavefront"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 

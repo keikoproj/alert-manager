@@ -29,7 +29,7 @@ import (
 	"github.com/keikoproj/alert-manager/internal/controllers/common"
 	mock_wavefront "github.com/keikoproj/alert-manager/internal/controllers/mocks"
 	"github.com/keikoproj/alert-manager/pkg/k8s"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
