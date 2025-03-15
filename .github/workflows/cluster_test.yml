@@ -42,7 +42,7 @@ jobs:
           make mock
           
       - name: Setup Kind Cluster
-        uses: helm/kind-action@v2
+        uses: helm/kind-action@v1.8.0
         with:
           version: v0.20.0
           cluster_name: alert-manager-test
