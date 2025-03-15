@@ -80,12 +80,13 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
-mock:
+mock: ## Generate mock implementations for interfaces
+	@echo "Installing mockgen..."
 	go install github.com/golang/mock/mockgen@v1.6.0
-	@echo "mockgen is in progess"
-	@for pkg in $(shell go list ./...) ; do \
-		PATH=$$PATH:$(GOBIN) go generate ./... ;\
-	done
+	@echo "Generating mocks..."
+	@cd internal/controllers && \
+	PATH=$$PATH:$(GOBIN) mockgen -destination=mocks/mock_wavefrontiface.go -package=mocks github.com/keikoproj/alert-manager/pkg/wavefront Interface
+	@echo "Mock generation completed"
 
 ENVTEST_ASSETS_DIR=$(shell pwd)/bin/k8s/$(ENVTEST_K8S_VERSION)-$(OSNAME)-$(shell go env GOARCH)
 

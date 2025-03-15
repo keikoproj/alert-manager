@@ -1,10 +1,19 @@
 name: Comprehensive Testing
 
 on:
+  # Run only on direct pushes to master (post-merge verification)
   push:
     branches: [ master ]
+  # Run for PRs targeting master (pre-merge verification)
   pull_request:
     branches: [ master ]
+    types: [opened, synchronize, reopened]
+
+# Prevent duplicate workflow runs for PRs from branches in the same repository
+# This avoids running the workflow twice when a PR branch is pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   unit-test:
@@ -28,6 +37,11 @@ jobs:
       - name: Install required tools
         run: |
           go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+          go install github.com/golang/mock/mockgen@v1.6.0
+          
+      - name: Generate mocks
+        run: |
+          make mock
           
       - name: Setup environment and run comprehensive tests
         run: |
