@@ -1,4 +1,4 @@
-name: Comprehensive Testing
+name: Integration Tests
 
 on:
   # Run only on direct pushes to master (post-merge verification)
@@ -16,8 +16,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  unit-test:
-    name: Unit & Integration Tests
+  integration-test:
+    name: Controller Integration Tests
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -26,14 +26,15 @@ jobs:
         go-version: [1.21.x]
         arch: [amd64, arm64]
     steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+        
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go-version }}
+          cache: true
           
-      - name: Check out code
-        uses: actions/checkout@v2
-        
       - name: Install required tools
         run: |
           go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
@@ -43,31 +44,15 @@ jobs:
         run: |
           make mock
           
-      - name: Setup environment and run comprehensive tests
+      - name: Setup environment for testing
         run: |
-          make ci-test
+          make setup-envtest
+          
+      - name: Run integration tests with envtest
+        run: |
+          make envtest-test
           
       - name: Upload coverage
-        uses: codecov/codecov-action@v1
+        uses: codecov/codecov-action@v3
         with:
           file: ./cover.out
-
-  integration-test:
-    name: Kind Integration Tests
-    runs-on: ubuntu-latest
-    needs: unit-test
-    steps:
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.21.x
-          
-      - name: Check out code
-        uses: actions/checkout@v2
-        
-      - name: Setup Kind Cluster
-        uses: helm/kind-action@v1.4.0
-        
-      - name: Run integration tests
-        run: |
-          make test-kind

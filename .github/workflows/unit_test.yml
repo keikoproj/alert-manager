@@ -1,0 +1,53 @@
+name: Unit Tests
+
+on:
+  # Run only on direct pushes to master (post-merge verification)
+  push:
+    branches: [ master ]
+  # Run for PRs targeting master (pre-merge verification)
+  pull_request:
+    branches: [ master ]
+    types: [opened, synchronize, reopened]
+
+# Prevent duplicate workflow runs for PRs from branches in the same repository
+# This avoids running the workflow twice when a PR branch is pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-test:
+    name: Unit Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        go-version: [1.21.x]
+        arch: [amd64, arm64]
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+        
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: true
+          
+      - name: Install required tools
+        run: |
+          go install github.com/golang/mock/mockgen@v1.6.0
+          
+      - name: Generate mocks
+        run: |
+          make mock
+          
+      - name: Run unit tests
+        run: |
+          make util-test
+          
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./cover.out
