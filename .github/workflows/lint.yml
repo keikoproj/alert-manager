@@ -1,15 +1,22 @@
 name: Lint and Scan
 
 on:
-  push:
-    branches: [ master ]
+  # Only run on PRs targeting master
   pull_request:
     branches: [ master ]
     types: [opened, synchronize, reopened]
+  # For direct pushes to master only
+  push:
+    branches: [ master ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/**'
+      - '!.github/workflows/lint.yml'
 
 # Prevent duplicate workflow runs
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
