@@ -1,4 +1,4 @@
-name: release
+name: Release
 
 on:
   push:
@@ -7,10 +7,32 @@ on:
       - 'v*'
 
 jobs:
-  push:
+  test:
+    name: Test Before Release
     runs-on: ubuntu-latest
     steps:
-      - name: Check out code into the Go module directory
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.21.x
+          
+      - name: Install required tools
+        run: |
+          go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+          
+      - name: Run comprehensive tests
+        run: |
+          make ci-test
+
+  build-and-push:
+    name: Build and Push Multi-Arch Images
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Check out code
         uses: actions/checkout@v2
 
       - name: Set up Docker Buildx
@@ -27,24 +49,65 @@ jobs:
           image: tonistiigi/binfmt:latest
           platforms: all
 
+      # Only attempt to push if we have Docker credentials
       - name: Login to DockerHub
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
         uses: docker/login-action@v1
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-      -
-        name: Docker meta
-        id: docker_meta
-        uses: crazy-max/ghaction-docker-meta@v1
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v3
         with:
-          images: ${{ github.repository_owner }}/alert-manager
-      -
-        name: Build and push
+          images: keikoproj/alert-manager
+          tags: |
+            type=semver,pattern={{version}}
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
+      
+      - name: Build and push
         uses: docker/build-push-action@v2
         with:
           context: .
           file: ./Dockerfile
-          platforms: linux/amd64,linux/arm/v7,linux/arm64
-          push: true
-          tags: ${{ steps.docker_meta.outputs.tags }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')) }}
+          tags: ${{ steps.meta.outputs.tags }}
+          
+  create-github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+        
+      - name: Get version from tag
+        id: get_version
+        run: echo "::set-output name=VERSION::${GITHUB_REF#refs/tags/}"
+        
+      - name: Extract release notes
+        id: extract_notes
+        run: |
+          VERSION=${{ steps.get_version.outputs.VERSION }}
+          NOTES=$(awk "/## ${VERSION}/{flag=1; next} /## v/{flag=0} flag" CHANGELOG.md)
+          NOTES="${NOTES//'%'/'%25'}"
+          NOTES="${NOTES//$'\n'/'%0A'}"
+          NOTES="${NOTES//$'\r'/'%0D'}"
+          echo "::set-output name=NOTES::$NOTES"
+          
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ steps.get_version.outputs.VERSION }}
+          body: ${{ steps.extract_notes.outputs.NOTES }}
+          draft: false
+          prerelease: false

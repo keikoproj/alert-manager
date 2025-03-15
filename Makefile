@@ -1,4 +1,3 @@
-
 # Image URL to use all building/pushing image targets
 IMG ?=  keikoproj/alert-manager:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
@@ -9,9 +8,20 @@ OSNAME           ?= $(shell uname -s | tr A-Z a-z)
 KUBEBUILDER_VER  ?= 3.0.0
 KUBEBUILDER_ARCH ?= amd64
 ENVTEST_K8S_VERSION = 1.28.0
+KIND_VERSION     ?= 0.20.0
+
+# Tool Versions
+CONTROLLER_TOOLS_VERSION ?= v0.13.0
+KUSTOMIZE_VERSION ?= v3.8.7
+
+# Kind configuration
+KIND            ?= $(LOCALBIN)/kind
+KIND_CLUSTER_NAME ?= alert-manager-test
+KIND_K8S_VERSION ?= v1.25.3
 
 KUBECONFIG                  ?= $(HOME)/.kube/config
 LOCAL                       ?= true
+TEST_MODE                   ?= true
 RESTRICTED_POLICY_RESOURCES ?= policy-resource
 RESTRICTED_S3_RESOURCES     ?= s3-resource
 AWS_ACCOUNT_ID              ?= 123456789012
@@ -74,12 +84,72 @@ mock:
 	go install github.com/golang/mock/mockgen@v1.6.0
 	@echo "mockgen is in progess"
 	@for pkg in $(shell go list ./...) ; do \
-		go generate ./... ;\
+		PATH=$$PATH:$(GOBIN) go generate ./... ;\
 	done
 
-ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
-test: mock manifests generate fmt vet envtest ## Run tests.
-	KUBECONFIG=$(KUBECONFIG) \
+ENVTEST_ASSETS_DIR=$(shell pwd)/bin/k8s/$(ENVTEST_K8S_VERSION)-$(OSNAME)-$(shell go env GOARCH)
+
+.PHONY: setup-envtest
+setup-envtest: $(ENVTEST) ## Download and setup the test environment binaries
+	mkdir -p $(LOCALBIN)/k8s
+	@echo "Setting up envtest with k8s version $(ENVTEST_K8S_VERSION)"
+	KUBEBUILDER_ASSETS=$(ENVTEST_ASSETS_DIR) $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir=$(ENVTEST_ASSETS_DIR)
+	@echo "Test environment binaries installed at $(ENVTEST_ASSETS_DIR)"
+
+kind: $(KIND) ## Download kind locally if necessary.
+	@echo "kind binary already exists at $(KIND)"
+
+$(KIND): $(LOCALBIN)
+	@echo "Installing kind..."
+	@curl -Lo $(KIND) "https://kind.sigs.k8s.io/dl/v$(KIND_VERSION)/kind-$(OSNAME)-amd64"
+	@chmod +x $(KIND)
+	@echo "kind binary installed at $(KIND)"
+
+.PHONY: kind-cluster
+kind-cluster: kind ## Create a kind cluster for testing
+	@echo "Creating kind cluster $(KIND_CLUSTER_NAME)..."
+	@if ! $(KIND) get clusters | grep -q $(KIND_CLUSTER_NAME); then \
+		$(KIND) create cluster --name $(KIND_CLUSTER_NAME) --image kindest/node:$(KIND_K8S_VERSION) --wait 5m; \
+	else \
+		echo "kind cluster $(KIND_CLUSTER_NAME) already exists"; \
+	fi
+	@echo "Setting kubeconfig to use kind cluster"
+	$(KIND) get kubeconfig --name $(KIND_CLUSTER_NAME) > $(LOCALBIN)/kind-kubeconfig
+	@echo "Kind cluster $(KIND_CLUSTER_NAME) is ready"
+
+.PHONY: kind-delete
+kind-delete: kind ## Delete the kind test cluster
+	@echo "Deleting kind cluster $(KIND_CLUSTER_NAME)..."
+	@if $(KIND) get clusters | grep -q $(KIND_CLUSTER_NAME); then \
+		$(KIND) delete cluster --name $(KIND_CLUSTER_NAME); \
+		echo "Kind cluster $(KIND_CLUSTER_NAME) has been deleted"; \
+	else \
+		echo "No kind cluster named $(KIND_CLUSTER_NAME) found"; \
+	fi
+
+# We're bypassing the mock/generate/manifests for the unit tests to simplify the process
+unit-test: ## Run only unit tests without CRD generation
+	@echo "Running unit tests only (no CRD generation)..."
+	TEST_MODE=true LOCAL=true PATH=$$PATH:$(GOBIN) go test ./internal/... ./pkg/... -v
+
+# We're creating a more focused test target that skips controllers
+util-test: ## Run only utility and package tests that don't require Kubernetes
+	@echo "Running utility tests only (skipping controllers)..."
+	TEST_MODE=true LOCAL=true PATH=$$PATH:$(GOBIN) go test ./internal/template/... ./internal/utils/... ./pkg/wavefront/... -v
+
+# Run with properly setup test environment using the envtest approach
+envtest-test: setup-envtest fmt vet mock ## Run tests in envtest with the proper setup
+	@echo "Running all tests using envtest..."
+	TEST_MODE=true \
+	KUBEBUILDER_ASSETS="$(ENVTEST_ASSETS_DIR)" \
+	LOCAL=$(LOCAL) \
+	PATH=$$PATH:$(GOBIN) go test ./... -v
+
+# Use the Kind cluster for complete tests 
+test-kind: kind-cluster ## Run tests using a kind cluster.
+	@echo "Running tests with kind cluster..."
+	TEST_MODE=true \
+	KUBECONFIG=$(LOCALBIN)/kind-kubeconfig \
 	LOCAL=$(LOCAL) \
 	RESTRICTED_POLICY_RESOURCES=$(RESTRICTED_POLICY_RESOURCES) \
 	RESTRICTED_S3_RESOURCES=$(RESTRICTED_S3_RESOURCES) \
@@ -88,7 +158,9 @@ test: mock manifests generate fmt vet envtest ## Run tests.
 	CLUSTER_NAME=$(CLUSTER_NAME) \
 	CLUSTER_OIDC_ISSUER_URL="$(CLUSTER_OIDC_ISSUER_URL)" \
 	DEFAULT_TRUST_POLICY=$(DEFAULT_TRUST_POLICY) \
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
+	PATH=$$PATH:$(GOBIN) go test ./... -coverprofile cover.out
+
+test: envtest-test ## Main test target - uses envtest setup with proper binaries
 
 ##@ Build
 
@@ -119,30 +191,36 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
-
+# Update controller-gen installation to better support ARM architectures
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
-controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.13.0)
+.PHONY: controller-gen
+controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
+$(CONTROLLER_GEN): $(LOCALBIN)
+	test -s $(LOCALBIN)/controller-gen && $(LOCALBIN)/controller-gen --version | grep -q $(CONTROLLER_TOOLS_VERSION) || \
+	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
 
 KUSTOMIZE = $(shell pwd)/bin/kustomize
-kustomize: ## Download kustomize locally if necessary.
-	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v3.8.7)
-
-# go-install-tool will 'go install' any package $2 and install it to $1.
-PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
-define go-install-tool
-@[ -f $(1) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
-go mod init tmp ;\
-echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
-rm -rf $$TMP_DIR ;\
-}
-endef
+.PHONY: kustomize
+kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary. If wrong version is installed, it will be removed before downloading.
+$(KUSTOMIZE): $(LOCALBIN)
+	@if test -x $(LOCALBIN)/kustomize && ! $(LOCALBIN)/kustomize version | grep -q $(KUSTOMIZE_VERSION); then \
+		echo "$(LOCALBIN)/kustomize version is not expected $(KUSTOMIZE_VERSION). Removing it before installing."; \
+		rm -rf $(LOCALBIN)/kustomize; \
+	fi
+	test -s $(LOCALBIN)/kustomize || GOBIN=$(LOCALBIN) GO111MODULE=on go install sigs.k8s.io/kustomize/kustomize/v3@$(KUSTOMIZE_VERSION)
 
 .PHONY: envtest
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
+##@ CI
+
+# Integration test target for CI - combines all tests and generates coverage report
+.PHONY: ci-test
+ci-test: setup-envtest fmt vet mock ## Run comprehensive tests for CI pipelines
+	@echo "Running comprehensive CI tests with coverage..."
+	TEST_MODE=true \
+	KUBEBUILDER_ASSETS="$(ENVTEST_ASSETS_DIR)" \
+	LOCAL=$(LOCAL) \
+	PATH=$$PATH:$(GOBIN) go test ./... -v -coverprofile cover.out

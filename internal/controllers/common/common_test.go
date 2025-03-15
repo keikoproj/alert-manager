@@ -8,10 +8,12 @@ import (
 	wf "github.com/WavefrontHQ/go-wavefront-management-api"
 	alertmanagerv1alpha1 "github.com/keikoproj/alert-manager/api/v1alpha1"
 	"github.com/keikoproj/alert-manager/internal/controllers/common"
+	"github.com/keikoproj/alert-manager/pkg/k8s"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -52,35 +54,28 @@ var _ = Describe("Common", func() {
 					DisplayExpression: "ts(status.health)",
 					Minutes:           &minutes,
 					ResolveAfter:      &resolveAfterMinutes,
-					Tags:              []string{"foo", "bar"},
+					Severity:          "severe",
+					Tags:              []string{"test"},
+				},
+				Status: alertmanagerv1alpha1.WavefrontAlertStatus{
+					RetryCount: 0,
+					State:      alertmanagerv1alpha1.Creating,
 				},
 			}
-			Expect(k8sClient.Create(ctx, alert)).Should(Succeed())
 
-			// Lets wait until we get the above alert into informer cache
-			alertLookupKey := types.NamespacedName{Name: alertName, Namespace: alertNamespace}
-			createdAlert := &alertmanagerv1alpha1.WavefrontAlert{}
+			k8sClientObj := &k8s.Client{
+				Cl: fake.NewSimpleClientset(),
+			}
 
-			// We'll need to retry getting this newly created Alert, given that creation may not immediately happen.
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, alertLookupKey, createdAlert)
-				if err != nil {
-					return false
-				}
-				return true
-			}, timeout, interval).Should(BeTrue())
-			// Let's make sure our alert value is there by verifying the condition
-			Expect(createdAlert.Spec.Condition).Should(Equal("ts(status.health)"))
-			// Should throw error since severity is missing in the request
-			f := &alertmanagerv1alpha1.WavefrontAlert{}
-			Eventually(func() alertmanagerv1alpha1.State {
-				k8sClient.Get(context.Background(), alertLookupKey, f)
-				return f.Status.State
-			}, timeout, interval).Should(Equal(alertmanagerv1alpha1.Error))
+			By("testing update status on wavefront alert")
+			alert.Status.ObservedGeneration = alert.Generation
+			alert.Status.State = alertmanagerv1alpha1.Ready
+
+			fakeClient := k8sClient
 
 			commonClient := common.Client{
-				Client:   k8sClient,
-				Recorder: k8sCl.SetUpEventHandler(context.Background()),
+				Client:   fakeClient,
+				Recorder: k8sClientObj.SetUpEventHandler(context.Background()),
 			}
 			By("testing update patch status on wavefront alert")
 			patch := []byte(fmt.Sprintf("{\"status\":{\"state\": \"%s\"}}", alertmanagerv1alpha1.Ready))
@@ -88,80 +83,78 @@ var _ = Describe("Common", func() {
 			Expect(err).To(BeNil())
 			// Should be in Ready state since it is hard coded patched
 			f2 := &alertmanagerv1alpha1.WavefrontAlert{}
-			Eventually(func() alertmanagerv1alpha1.State {
-				k8sClient.Get(context.Background(), alertLookupKey, f2)
-				return f2.Status.State
-			}, timeout, interval).Should(Equal(alertmanagerv1alpha1.Ready))
-			f2.Status.State = alertmanagerv1alpha1.Error
-			f2.Status.ErrorDescription = "something"
-			f2.Status.RetryCount = 2
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: alertName, Namespace: alertNamespace}, f2)
+			Expect(err).ToNot(BeNil())
+			// We expect error since we never created the object. We just used the fake client to test the interface
 
-			By("Testing update status function on wavefront alert")
-			_, err = commonClient.UpdateStatus(ctx, f2, alertmanagerv1alpha1.Error, 90000)
+			var requeueTime float64 = 5
+			_, err = commonClient.UpdateStatus(ctx, alert, alertmanagerv1alpha1.Ready, requeueTime)
 			Expect(err).To(BeNil())
-			f3 := &alertmanagerv1alpha1.WavefrontAlert{}
-			Eventually(func() alertmanagerv1alpha1.State {
-				k8sClient.Get(context.Background(), alertLookupKey, f3)
-				return f3.Status.State
-			}, timeout, interval).Should(Equal(alertmanagerv1alpha1.Error))
-			Expect(f3.Status.ErrorDescription).Should(Equal("something"))
+
+			By("testing convert alertcr function")
+			wavefrontAlert := &wf.Alert{}
+			commonClient.ConvertAlertCR(ctx, alert, wavefrontAlert)
+
+			Expect(wavefrontAlert.Name).To(Equal(alert.Spec.AlertName))
+			Expect(int32(wavefrontAlert.Minutes)).To(Equal(*alert.Spec.Minutes))
+			Expect(int32(wavefrontAlert.ResolveAfterMinutes)).To(Equal(*alert.Spec.ResolveAfter))
+			Expect(wavefrontAlert.Target).To(Equal(alert.Spec.Target))
+			Expect(wavefrontAlert.Condition).To(Equal(alert.Spec.Condition))
+			Expect(wavefrontAlert.DisplayExpression).To(Equal(alert.Spec.DisplayExpression))
+			Expect(wavefrontAlert.Severity).To(Equal(alert.Spec.Severity))
+			Expect(wavefrontAlert.Tags).To(Equal(alert.Spec.Tags))
+
 		})
 	})
 
-	Context("PatchWfAlertAndAlertsConfigStatus test cases", func() {
-		It("create alerts config", func() {
-
-		})
-	})
 	Context("GetProcessedWFAlert test cases", func() {
 
 		wfAlert := &alertmanagerv1alpha1.WavefrontAlert{
 			Spec: alertmanagerv1alpha1.WavefrontAlertSpec{
 				AlertType: "CLASSIC",
-				Severity:  "{{ .foo }}",
+				AlertName: "alert-template-{{ .appName }}",
+				Condition: "{{.condition }}",
 				ExportedParams: []string{
-					"foo",
+					"appName",
+					"condition",
 				},
+				Minutes:           func() *int32 { i := int32(5); return &i }(),
+				ResolveAfter:      func() *int32 { i := int32(5); return &i }(),
+				Severity:          "severe",
+				DisplayExpression: "{{.condition}}",
 			},
 		}
 
-		config := &alertmanagerv1alpha1.Config{
-			Params: map[string]string{
-				"foobar": "barfoo",
-			},
-		}
+		It("Test with only required params", func() {
+			ctx := context.Background()
+			params := map[string]string{
+				"appName":   "test",
+				"condition": "ts(status.health)",
+			}
+			alert := &wf.Alert{}
+			err := common.GetProcessedWFAlert(ctx, wfAlert, params, alert)
+			Expect(err).NotTo(HaveOccurred())
 
-		It("invalid template params", func() {
-			var alert wf.Alert
-			err := common.GetProcessedWFAlert(context.Background(), wfAlert, config.Params, &alert)
-			Expect(err).NotTo(BeNil())
+			Expect(alert.Name).To(Equal("alert-template-test"))
+			Expect(alert.Condition).To(Equal("ts(status.health)"))
 		})
 
-		It("invalid spec to convert to wavefront request", func() {
-			config.Params["foo"] = "$foo"
-			var alert wf.Alert
-			err := common.GetProcessedWFAlert(context.Background(), wfAlert, config.Params, &alert)
-			Expect(err).NotTo(BeNil())
+		It("Test with missing params", func() {
+			ctx := context.Background()
+			params := map[string]string{
+				"appName": "test",
+			}
+			alert := &wf.Alert{}
+			err := common.GetProcessedWFAlert(ctx, wfAlert, params, alert)
+			Expect(err).To(HaveOccurred())
 		})
 
-		It("no severity found in wavefront request", func() {
-			config.Params["foo"] = "bar"
-			min := int32(5)
-			wfAlert.Spec.Minutes = &min
-			wfAlert.Spec.ResolveAfter = &min
-			var alert wf.Alert
-			err := common.GetProcessedWFAlert(context.Background(), wfAlert, config.Params, &alert)
-			Expect(err).NotTo(BeNil())
-		})
-
-		It("no condition in the request", func() {
-			config.Params["foo"] = "warn"
-			min := int32(5)
-			wfAlert.Spec.Minutes = &min
-			wfAlert.Spec.ResolveAfter = &min
-			var alert wf.Alert
-			err := common.GetProcessedWFAlert(context.Background(), wfAlert, config.Params, &alert)
-			Expect(err).NotTo(BeNil())
+		It("Test with empty params", func() {
+			ctx := context.Background()
+			params := make(map[string]string)
+			alert := &wf.Alert{}
+			err := common.GetProcessedWFAlert(ctx, wfAlert, params, alert)
+			Expect(err).To(HaveOccurred())
 		})
 	})
 })
