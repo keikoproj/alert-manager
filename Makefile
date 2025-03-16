@@ -87,8 +87,10 @@ test: mock manifests generate fmt vet envtest ## Run tests.
 
 ##@ Build
 
-build: mock generate fmt vet ## Build manager binary.
-	go build -o bin/manager cmd/main.go
+.PHONY: build
+build: $(LOCALBIN)/manager
+$(LOCALBIN)/manager: generate fmt vet ## Build manager binary.
+	go build -o $(LOCALBIN)/manager cmd/main.go
 
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run cmd/main.go
