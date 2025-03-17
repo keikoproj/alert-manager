@@ -173,7 +173,9 @@ kubectl apply -f my-alerts-config.yaml
 - Explore more [Alert Manager Examples](examples/)
 - Learn about [Configuration Options](docs/ConfigMap_Properties.md)
 - Read the [Architecture Documentation](architecture.md)
-- Set up [IRSA Integration](docs/aws-integration.md) if running on AWS
+- Configure different alert templates
+- Add custom backend implementations
+- Use different Kubernetes resources
 
 ## Troubleshooting
 

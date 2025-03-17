@@ -181,7 +181,7 @@ kubectl edit deployment alert-manager-controller-manager -n alert-manager-system
 
 alert-manager uses kubebuilder and controller-gen for code generation.
 
-### Kubebuilder and Controller-Gen
+### Kubebuilder and controller-gen
 
 Alert Manager follows the [Kubebuilder](https://book.kubebuilder.io/) project structure and conventions. The project was initially scaffolded using Kubebuilder, which set up:
 

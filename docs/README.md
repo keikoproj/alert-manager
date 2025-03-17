@@ -17,7 +17,6 @@ Welcome to the Alert Manager documentation. This directory contains resources to
 
 ## Advanced Topics
 
-* [AWS Integration](aws-integration.md) - Guide for setting up Alert Manager with AWS services
 * [Troubleshooting Guide](troubleshooting.md) - Solutions for common issues and troubleshooting steps
 
 ## For Developers

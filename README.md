@@ -214,7 +214,6 @@ Apache License 2.0, see [LICENSE](LICENSE).
 - [Quick Start Guide](docs/quickstart.md)
 - [Configuration Options](docs/configmap-properties.md)
 - [Developer Guide](docs/developer-guide.md)
-- [AWS Integration](docs/aws-integration.md)
 - [Troubleshooting Guide](docs/troubleshooting.md)
 
 ## Version Compatibility
