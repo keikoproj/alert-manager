@@ -116,6 +116,7 @@ For more template alerts user case and alerts config usage please refer here
 ### Installation
 1. Update the config map with the target urls. For example: For WavefrontAlerts, it is pointed to try.wavefront.com and you must change it to your target url
 2. Create a Secret with wavefront Api Key (for WavefrontAlerts). Please refer Sample Secret [here](docs/Sample-Secret.yaml)
+   - **Important**: You must replace the placeholder value in the Sample-Secret.yaml with your actual base64 encoded Wavefront API token
 3. Point your kubeconfig file to the k8s cluster where you want to create. ex: export KUBECONFIG=~/.kube/config
 4. make deploy
 
@@ -126,5 +127,3 @@ Please see [CONTRIBUTING.md](.github/CONTRIBUTING.md).
 ### Developer Guide
 
 Please see [DEVELOPER.md](.github/DEVELOPER.md).
-
-
