@@ -1,106 +1,127 @@
 # Alert Manager ConfigMap Properties
 
-This document describes all the configuration options available in the alert-manager ConfigMap.
+This document describes all the configuration options available in the alert-manager ConfigMaps.
 
-## ConfigMap Structure
+## Required ConfigMaps
 
-The alert-manager ConfigMap consists of several sections that control different aspects of the controller's behavior:
+Alert Manager requires two ConfigMaps to function properly:
+
+1. `alert-manager-controller-manager-config` - Used by the Kubernetes controller-runtime framework
+2. `alert-manager-configmap` - Used directly by the alert-manager application code
+
+> **Important:** Both ConfigMaps are required and serve different purposes. Missing either one will cause the controller to crash on startup.
+
+## Why Two ConfigMaps?
+
+The alert-manager controller uses two separate ConfigMaps for different purposes:
+
+1. **Controller Framework ConfigMap**: `alert-manager-controller-manager-config`
+   - This ConfigMap is used by the underlying Kubernetes controller-runtime framework
+   - It configures system-level features like health probes, metrics, leader election
+   - It also contains important environment variable values for the controller deployment
+
+2. **Application ConfigMap**: `alert-manager-configmap`
+   - This ConfigMap is explicitly loaded by the application code
+   - It's defined as a constant (`AlertManagerConfigMapName = "alert-manager-configmap"`) in the source code
+   - It contains application-specific configuration like backend type and URL
+
+## Controller Manager ConfigMap
+
+This ConfigMap is used by controller-runtime and contains configuration for health probes, metrics, webhook, and leader election:
 
 ```yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: alert-manager-config
+  name: alert-manager-controller-manager-config
   namespace: alert-manager-system
 data:
-  # Monitoring system endpoints
-  wavefront.url: "https://try.wavefront.com"
-  
-  # Controller configuration
-  controller.reconcile.interval: "5m"
-  controller.max-concurrent-reconciles: "5"
-  
-  # Alert defaults
-  defaults.severity: "INFO"
-  defaults.resolve-minutes: "5"
-  
-  # Retry configuration
-  retry.initial-interval: "5s"
-  retry.max-interval: "1m"
-  retry.max-attempts: "3"
-  
-  # Logging configuration
-  logging.level: "info"
+  controller_manager_config.yaml: |
+    apiVersion: controller-runtime.sigs.k8s.io/v1alpha1
+    kind: ControllerManagerConfig
+    health:
+      healthProbeBindAddress: :8081
+    metrics:
+      bindAddress: 127.0.0.1:8080
+    webhook:
+      port: 9443
+    leaderElection:
+      leaderElect: true
+      resourceName: 5eb85e31.keikoproj.io
+  MONITORING_BACKEND_URL: "https://YOUR_WAVEFRONT_INSTANCE.wavefront.com"
+  MONITORING_BACKEND_TYPE: "wavefront"
 ```
 
-## Available Configuration Options
+## Application ConfigMap
 
-### Wavefront Settings
+This ConfigMap contains application-specific configuration and is required by the controller:
 
-| Property | Default | Description |
-|----------|---------|-------------|
-| `wavefront.url` | `https://try.wavefront.com` | The URL of your Wavefront instance |
-| `wavefront.timeout` | `30s` | HTTP request timeout for Wavefront API calls |
-| `wavefront.batch-size` | `100` | Maximum number of alerts to process in a single batch |
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alert-manager-configmap
+  namespace: alert-manager-system
+data:
+  app.mode: "dev"
+  base.url: "https://YOUR_WAVEFRONT_INSTANCE.wavefront.com"
+  backend.type: "wavefront"
+```
 
-### Controller Settings
+## Secret Configuration
 
-| Property | Default | Description |
-|----------|---------|-------------|
-| `controller.reconcile.interval` | `5m` | How often to run full reconciliation |
-| `controller.max-concurrent-reconciles` | `5` | Maximum number of concurrent reconciles |
-| `controller.status-update-interval` | `1m` | How often to update status for resources |
-| `controller.manager-workers` | `10` | Number of worker threads in the controller manager |
+In addition to ConfigMaps, alert-manager requires a secret for API token authentication:
 
-### Alert Defaults
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wavefront-api-token
+  namespace: alert-manager-system
+type: Opaque
+stringData:
+  wavefront-api-token: "YOUR_API_TOKEN_HERE"
+```
 
-| Property | Default | Description |
-|----------|---------|-------------|
-| `defaults.severity` | `INFO` | Default severity for alerts if not specified |
-| `defaults.resolve-minutes` | `5` | Default resolve after minutes if not specified |
-| `defaults.minutes` | `5` | Default alert trigger time if not specified |
-| `defaults.alert-type` | `CLASSIC` | Default alert type if not specified |
+> **IMPORTANT:** The secret key name (`wavefront-api-token`) must exactly match the secret name for the controller to correctly read the token.
 
-### Retry Configuration
+## Available Configuration Properties
 
-| Property | Default | Description |
-|----------|---------|-------------|
-| `retry.initial-interval` | `5s` | Initial retry interval for failed API calls |
-| `retry.max-interval` | `1m` | Maximum retry interval (with exponential backoff) |
-| `retry.max-attempts` | `3` | Maximum retry attempts before giving up |
-| `retry.jitter-factor` | `0.1` | Jitter factor to add randomness to retry intervals |
+### Application ConfigMap Properties
 
-### Logging Configuration
+| Property | Description | Example |
+|----------|-------------|---------|
+| `app.mode` | Application mode (dev/prod) | `"dev"` |
+| `base.url` | URL of your Wavefront instance | `"https://example.wavefront.com"` |
+| `backend.type` | Type of monitoring backend | `"wavefront"` |
 
-| Property | Default | Description |
-|----------|---------|-------------|
-| `logging.level` | `info` | Logging level (`debug`, `info`, `warn`, `error`) |
-| `logging.format` | `json` | Log format (`json` or `text`) |
-| `logging.development` | `false` | Enable development mode logging |
-| `logging.stacktrace-level` | `error` | Level at which to capture stacktraces |
+### Controller Manager ConfigMap Properties
 
-## Applying Configuration Changes
+| Property | Description | Example |
+|----------|-------------|---------|
+| `MONITORING_BACKEND_URL` | URL of your monitoring backend | `"https://example.wavefront.com"` |
+| `MONITORING_BACKEND_TYPE` | Type of monitoring backend | `"wavefront"` |
 
-To update the configuration:
+## Troubleshooting ConfigMap Issues
 
-1. Edit the ConfigMap:
+If you encounter issues with ConfigMaps:
+
+1. **Check if both ConfigMaps exist**:
    ```bash
-   kubectl edit configmap alert-manager-config -n alert-manager-system
+   kubectl get configmaps -n alert-manager-system
+   ```
+   
+2. **Verify the content of each ConfigMap**:
+   ```bash
+   kubectl get configmap alert-manager-configmap -n alert-manager-system -o yaml
+   kubectl get configmap alert-manager-controller-manager-config -n alert-manager-system -o yaml
    ```
 
-2. Restart the controller to apply changes:
+3. **Check controller logs for ConfigMap-related errors**:
    ```bash
-   kubectl rollout restart deployment alert-manager-controller-manager -n alert-manager-system
+   kubectl logs -n alert-manager-system deployment/alert-manager-controller-manager -c manager | grep -i configmap
    ```
 
-## Environment Variables
+4. **Common Error**: `configmaps "alert-manager-configmap" not found` indicates the application ConfigMap is missing.
 
-The following environment variables can be used to override ConfigMap settings:
-
-| Environment Variable | Corresponding ConfigMap Key | Description |
-|----------------------|----------------------------|-------------|
-| `WAVEFRONT_URL` | `wavefront.url` | Wavefront instance URL |
-| `RECONCILE_INTERVAL` | `controller.reconcile.interval` | Reconciliation interval |
-| `LOG_LEVEL` | `logging.level` | Logging level |
-
-These can be set in the controller Deployment specification.
+For more detailed troubleshooting steps, see the [Troubleshooting Guide](troubleshooting.md#missing-configmap).

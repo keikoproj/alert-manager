@@ -12,51 +12,112 @@ Before you begin, ensure you have:
 
 ## Installation
 
-### 1. Clone the Repository
+There are two recommended ways to install alert-manager:
 
-```bash
-git clone https://github.com/keikoproj/alert-manager.git
-cd alert-manager
-```
+### Installation Using the Script (Recommended)
 
-### 2. Configure the Controller
+The easiest way to install alert-manager is using the provided installation script:
 
-Create a Wavefront API token secret:
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/keikoproj/alert-manager.git
+   cd alert-manager
+   ```
 
-```bash
-kubectl create namespace alert-manager-system
+2. Run the installation script:
+   ```bash
+   ./hack/install.sh <namespace> <monitoring_backend_url> <api_token>
+   
+   # Example:
+   ./hack/install.sh alert-manager-system wavefront.example.com my-api-token
+   ```
 
-# Replace YOUR_WAVEFRONT_TOKEN with your actual Wavefront API token
-kubectl create secret generic wavefront-api-key \
-  --from-literal=token=YOUR_WAVEFRONT_TOKEN \
-  -n alert-manager-system
-```
+The script will:
+- Create the namespace if it doesn't exist
+- Apply all necessary Kubernetes resources (CRDs, RBAC, ConfigMaps, etc.)
+- Create the required secrets with your API token
+- Verify the deployment is successful
 
-### 3. Update the ConfigMap
+**Important:** The installation script handles many common issues automatically, such as:
+- Creating the correct secret format for the Wavefront API token 
+- Setting up proper RBAC permissions for secret access
+- Creating the required ConfigMap
 
-Edit the ConfigMap to specify your Wavefront URL:
+### Manual Installation
 
-```bash
-# Open the ConfigMap YAML file
-vim config/manager/alertmanager_config.yaml
+If you prefer to install manually:
 
-# Update the URL to your Wavefront instance
-# Change from try.wavefront.com to your actual Wavefront URL
-```
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/keikoproj/alert-manager.git
+   cd alert-manager
+   ```
 
-### 4. Deploy the Controller
+2. Create the necessary namespace:
+   ```bash
+   kubectl create namespace alert-manager-system
+   ```
 
-```bash
-make deploy
-```
+3. Create the Wavefront API token secret (**Note the specific format required**):
+   ```bash
+   cat <<EOF | kubectl apply -f -
+   apiVersion: v1
+   kind: Secret
+   metadata:
+     name: wavefront-api-token
+     namespace: alert-manager-system
+   type: Opaque
+   stringData:
+     wavefront-api-token: "YOUR_API_TOKEN_HERE"
+   EOF
+   ```
 
-### 5. Verify the Installation
+4. Create the required configuration ConfigMap:
+   ```bash
+   cat <<EOF | kubectl apply -f -
+   apiVersion: v1
+   kind: ConfigMap
+   metadata:
+     name: alert-manager-configmap
+     namespace: alert-manager-system
+   data:
+     app.mode: "dev"
+     base.url: "YOUR_WAVEFRONT_URL"
+     backend.type: "wavefront"
+   EOF
+   ```
 
-```bash
-kubectl get pods -n alert-manager-system
-```
+5. Apply the RBAC rules:
+   ```bash
+   kubectl apply -f config/rbac/
+   ```
+   
+6. Apply the CRDs:
+   ```bash
+   kubectl apply -f config/crd/bases/
+   ```
 
-You should see the alert-manager-controller-manager pod running.
+7. Deploy the controller:
+   ```bash
+   kubectl apply -f config/manager/manager.yaml
+   ```
+
+### Verifying the Installation
+
+To verify the installation was successful:
+
+1. Check if the controller pod is running:
+   ```bash
+   kubectl get pods -n alert-manager-system
+   ```
+   You should see the controller pod with status `Running` and 2/2 containers ready.
+
+2. Check the controller logs for any errors:
+   ```bash
+   kubectl logs -n alert-manager-system deployment/alert-manager-controller-manager -c manager
+   ```
+
+If you encounter any issues, refer to the [Troubleshooting Guide](troubleshooting.md) for common problems and solutions.
 
 ## Creating Your First Alert
 

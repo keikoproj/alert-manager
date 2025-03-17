@@ -1,0 +1,28 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: alert-manager-secrets-role
+  namespace: alert-manager-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: alert-manager-secrets-rolebinding
+  namespace: alert-manager-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: alert-manager-secrets-role
+subjects:
+- kind: ServiceAccount
+  name: alert-manager-controller-manager
+  namespace: alert-manager-system

@@ -1,0 +1,681 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: alert-manager-system
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.0
+  name: alertsconfigs.alertmanager.keikoproj.io
+spec:
+  group: alertmanager.keikoproj.io
+  names:
+    kind: AlertsConfig
+    listKind: AlertsConfigList
+    plural: alertsconfigs
+    singular: alertsconfig
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: current state of the alerts config
+      jsonPath: .status.state
+      name: State
+      type: string
+    - description: Retry count
+      jsonPath: .status.retryCount
+      name: RetryCount
+      type: integer
+    - description: time passed since alerts config creation
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: AlertsConfig is the Schema for the alertsconfigs API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: AlertsConfigSpec defines the desired state of AlertsConfig
+            properties:
+              alerts:
+                description: Alerts- Provide each individual alert config
+                additionalProperties:
+                  description: Config section provides the AlertsConfig for each individual
+                    alert
+                  properties:
+                    enableTemplates:
+                      description: 'EnableTemplates- If template is not enabled, all
+                        fields will be taken as constant values rather than templates
+                        Default value is "true"'
+                      type: boolean
+                    gvk:
+                      description: GVK- This can be used to overwrite the global GVK.
+                        If not defined, global gvk will be taken
+                      properties:
+                        group:
+                          description: Group - CRD Group name which this config/s is
+                            related to
+                          type: string
+                        kind:
+                          description: Kind - CRD Kind name which this config/s is
+                            related to
+                          type: string
+                        version:
+                          description: Version - CRD Version name which this config/s
+                            is related to
+                          type: string
+                      type: object
+                    params:
+                      description: 'Params- Provide individual alert param values.
+                        Please note that these values take precedence over global
+                        params if a param is defined in both global and individual
+                        level. Valid templates {{  .Namespace  }} - namespace of instance/pod/container
+                        {{  .Instance  }} - instance Id {{  .ClusterName  }} - EKS
+                        cluster name {{  .ClusterRegion  }} - EKS cluster region {{  .NodeName  }}
+                        - Node name {{  .PodName  }} - Pod name {{  .ContainerName  }}
+                        - Container name Some of these template values may not be available
+                        for all kinds of resources.'
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    podAnnotationKey:
+                      description: PodAnnotationKey- If this is specified, an annotation
+                        will be added on the pod with this key and values will be
+                        the Linked alerts List
+                      type: string
+                    raw:
+                      description: 'Raw- This is a json string that will be parsed
+                        and directly used to create the CR. if used, all the other
+                        template params will be ignored. Json data should have the
+                        entire spec section in it. "Kind", "ApiVersion" and "metadata.name"
+                        will be added/replaced by iam-manager. So even it you define
+                        it here, it will be replaced. Sample: { "spec" : { "key1":
+                        "value1", "key2": true } }'
+                      type: string
+                  type: object
+                type: object
+              globalGVK:
+                description: GlobalGVK- This is a global GVK config but user can overwrite
+                  it if an AlertsConfig supports multiple type of Alerts in future.
+                  This CRD must be installed in the cluster otherwise AlertsConfig
+                  will go into error state
+                properties:
+                  group:
+                    description: Group - CRD Group name which this config/s is related
+                      to
+                    type: string
+                  kind:
+                    description: Kind - CRD Kind name which this config/s is related
+                      to
+                    type: string
+                  version:
+                    description: Version - CRD Version name which this config/s is
+                      related to
+                    type: string
+                type: object
+              globalParams:
+                description: GlobalParams is the place holder to provide any global
+                  param values which can be used in individual config sections. Please
+                  note that if a param is mentioned in both global param section and
+                  individual config params section, later will be taken into consideration
+                  and NOT the value from global param section
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+            type: object
+          status:
+            description: AlertsConfigStatus defines the observed state of AlertsConfig
+            properties:
+              alertsCount:
+                description: Total alerts managed by this CR
+                type: integer
+              alertsStatus:
+                additionalProperties:
+                  description: AlertStatus consists of individual alert details
+                  properties:
+                    alertName:
+                      type: string
+                    associatedAlert:
+                      description: AssociatedAlert helps to know which specific instance
+                        the alert belongs to. This information will be useful when
+                        same alert is applied to multiple instances/pods.
+                      properties:
+                        CR:
+                          type: string
+                        generation:
+                          format: int64
+                          type: integer
+                      type: object
+                    associatedAlertsConfig:
+                      properties:
+                        CR:
+                          type: string
+                      type: object
+                    errorDescription:
+                      type: string
+                    id:
+                      type: string
+                    lastChangeChecksum:
+                      type: string
+                    lastUpdatedTimestamp:
+                      format: date-time
+                      type: string
+                    link:
+                      type: string
+                    state:
+                      type: string
+                  required:
+                  - id
+                  - alertName
+                  - errorDescription
+                  type: object
+                description: Individual alert status
+                type: object
+              errorDescription:
+                description: ErrorDescription holds information about error details
+                type: string
+              retryCount:
+                description: RetryCount will be 0 for successful cases. If the alerts
+                  retry exceeds limits, CR will be left with error state
+                type: integer
+              state:
+                description: State can have Ready/Error staus
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.0
+  name: wavefrontalerts.alertmanager.keikoproj.io
+spec:
+  group: alertmanager.keikoproj.io
+  names:
+    kind: WavefrontAlert
+    listKind: WavefrontAlertList
+    plural: wavefrontalerts
+    shortNames:
+    - wfalerts
+    singular: wavefrontalert
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: current state of the wavefront alert
+      jsonPath: .status.state
+      name: State
+      type: string
+    - description: Retry count
+      jsonPath: .status.retryCount
+      name: RetryCount
+      type: integer
+    - description: time passed since wavefront alert creation
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: WavefrontAlert is the Schema for the wavefrontalerts API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: WavefrontAlertSpec defines the desired state of WavefrontAlert
+            properties:
+              alertName:
+                description: Name of the alert to be created in Wavefront
+                type: string
+              alertType:
+                default: CLASSIC
+                description: AlertType represents the type of the Alert in Wavefront.
+                  Defaults to CLASSIC alert
+                enum:
+                - CLASSIC
+                - THRESHOLD
+                type: string
+              condition:
+                description: A conditional expression that defines the threshold for
+                  the Classic alert. For CLASSIC (or default alerts) condition must
+                  be provided
+                type: string
+              displayExpression:
+                description: A second conditional expression that provides additional
+                  information
+                type: string
+              minutes:
+                description: Minutes where alert is in "true" state continuously to
+                  trigger an alert
+                format: int32
+                type: integer
+              resolveAfterMinutes:
+                description: Minutes after the alert got back to "false" state to
+                  resolve the incident
+                format: int32
+                type: integer
+              severity:
+                description: For classic alert type, mention the severity of the incident.
+                  This will be ignored for threshold type of alerts
+                type: string
+              tags:
+                description: 'Additional Tags that can be metadata to organize alerts
+                  The tags can be filtered out in the WF UI Proper tagging helps to
+                  identify alerts easily. Some recommended tags are: 1. Application_id,
+                  2. App_team, 3. on-call_team etc'
+                items:
+                  type: string
+                type: array
+              targets:
+                description: Targets consists of target ID's like email, pd, or target
+                  ID's directly from WF. If not specified, alerts will use default
+                  targets defined in the WF
+                items:
+                  description: Target struct holds Wavefront target configuration which
+                    could be individual emails/pd/targets etc
+                  properties:
+                    emailIds:
+                      description: StringOrStrings type accepts one string or multiple
+                        strings
+                      items:
+                        type: string
+                      type: array
+                    id:
+                      type: string
+                    name:
+                      type: string
+                    pdServiceKeys:
+                      items:
+                        type: string
+                      type: array
+                    template:
+                      type: string
+                  type: object
+                type: array
+            required:
+            - alertName
+            - condition
+            - minutes
+            - resolveAfterMinutes
+            - severity
+            type: object
+          status:
+            description: WavefrontAlertStatus defines the observed state of WavefrontAlert
+            properties:
+              alertsStatus:
+                additionalProperties:
+                  description: AlertStatus consists of individual alert details
+                  properties:
+                    alertName:
+                      type: string
+                    associatedAlert:
+                      description: AssociatedAlert helps to know which specific instance
+                        the alert belongs to. This information will be useful when
+                        same alert is applied to multiple instances/pods.
+                      properties:
+                        CR:
+                          type: string
+                        generation:
+                          format: int64
+                          type: integer
+                      type: object
+                    associatedAlertsConfig:
+                      properties:
+                        CR:
+                          type: string
+                      type: object
+                    errorDescription:
+                      type: string
+                    id:
+                      type: string
+                    lastChangeChecksum:
+                      type: string
+                    lastUpdatedTimestamp:
+                      format: date-time
+                      type: string
+                    link:
+                      type: string
+                    state:
+                      type: string
+                  required:
+                  - id
+                  - alertName
+                  - errorDescription
+                  type: object
+                type: object
+              errorDescription:
+                type: string
+              exportParamsChecksum:
+                type: string
+              lastChangeChecksum:
+                type: string
+              observedGeneration:
+                format: int64
+                type: integer
+              retryCount:
+                type: integer
+              state:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: alert-manager-controller-manager
+  namespace: alert-manager-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: alert-manager-leader-election-role
+  namespace: alert-manager-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: alert-manager-manager-role
+rules:
+- apiGroups:
+  - alertmanager.keikoproj.io
+  resources:
+  - alertsconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - alertmanager.keikoproj.io
+  resources:
+  - alertsconfigs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - alertmanager.keikoproj.io
+  resources:
+  - alertsconfigs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - alertmanager.keikoproj.io
+  resources:
+  - wavefrontalerts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - alertmanager.keikoproj.io
+  resources:
+  - wavefrontalerts/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - alertmanager.keikoproj.io
+  resources:
+  - wavefrontalerts/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: alert-manager-metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: alert-manager-proxy-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: alert-manager-leader-election-rolebinding
+  namespace: alert-manager-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: alert-manager-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: alert-manager-controller-manager
+  namespace: alert-manager-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: alert-manager-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: alert-manager-manager-role
+subjects:
+- kind: ServiceAccount
+  name: alert-manager-controller-manager
+  namespace: alert-manager-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: alert-manager-proxy-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: alert-manager-proxy-role
+subjects:
+- kind: ServiceAccount
+  name: alert-manager-controller-manager
+  namespace: alert-manager-system
+---
+apiVersion: v1
+data:
+  controller_manager_config.yaml: |
+    apiVersion: controller-runtime.sigs.k8s.io/v1alpha1
+    kind: ControllerManagerConfig
+    health:
+      healthProbeBindAddress: :8081
+    metrics:
+      bindAddress: 127.0.0.1:8080
+    webhook:
+      port: 9443
+    leaderElection:
+      leaderElect: true
+      resourceName: 5eb85e31.keikoproj.io
+  MONITORING_BACKEND_URL: "REPLACE_MONITORING_URL"
+  MONITORING_BACKEND_TYPE: "wavefront"
+kind: ConfigMap
+metadata:
+  name: alert-manager-controller-manager-config
+  namespace: alert-manager-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: alert-manager-controller-manager-metrics-service
+  namespace: alert-manager-system
+spec:
+  ports:
+  - name: https
+    port: 8443
+    targetPort: https
+  selector:
+    control-plane: controller-manager
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: alert-manager-controller-manager
+  namespace: alert-manager-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  template:
+    metadata:
+      labels:
+        control-plane: controller-manager
+    spec:
+      containers:
+      - args:
+        - --secure-listen-address=0.0.0.0:8443
+        - --upstream=http://127.0.0.1:8080/
+        - --logtostderr=true
+        - --v=10
+        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
+        name: kube-rbac-proxy
+        ports:
+        - containerPort: 8443
+          name: https
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 5m
+            memory: 64Mi
+      - args:
+        - --health-probe-bind-address=:8081
+        - --metrics-bind-address=127.0.0.1:8080
+        - --leader-elect
+        command:
+        - /manager
+        env:
+        - name: WAVEFRONT_URL
+          valueFrom:
+            configMapKeyRef:
+              key: MONITORING_BACKEND_URL
+              name: alert-manager-controller-manager-config
+        - name: WAVEFRONT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: wavefront-api-token
+              name: wavefront-api-token
+        image: keikoproj/alert-manager:latest
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: manager
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: alert-manager-controller-manager
+      terminationGracePeriodSeconds: 10

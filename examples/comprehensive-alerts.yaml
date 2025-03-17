@@ -1,0 +1,159 @@
+---
+# Example 1: Service Availability Monitoring
+apiVersion: alertmanager.keikoproj.io/v1alpha1
+kind: WavefrontAlert
+metadata:
+  name: service-availability-alert
+  namespace: default
+spec:
+  alertType: CLASSIC
+  alertName: "Service Availability - API Endpoint"
+  condition: "100 - (ts(api.endpoint.success.count) / (ts(api.endpoint.success.count) + ts(api.endpoint.error.count)) * 100) > 5"
+  displayExpression: "100 - (ts(api.endpoint.success.count) / (ts(api.endpoint.success.count) + ts(api.endpoint.error.count)) * 100)"
+  minutes: 5
+  resolveAfterMinutes: 5
+  severity: severe
+  tags:
+    - "availability"
+    - "api"
+    - "production"
+---
+# Example 2: High Latency Alert
+apiVersion: alertmanager.keikoproj.io/v1alpha1
+kind: WavefrontAlert
+metadata:
+  name: high-latency-alert
+  namespace: default
+spec:
+  alertType: CLASSIC
+  alertName: "High API Latency"
+  condition: "ts(api.endpoint.latency.p95) > 500"
+  displayExpression: "ts(api.endpoint.latency.p95)"
+  minutes: 10
+  resolveAfterMinutes: 5
+  severity: severe
+  tags:
+    - "latency"
+    - "api"
+    - "performance"
+---
+# Example 3: Error Rate Monitoring
+apiVersion: alertmanager.keikoproj.io/v1alpha1
+kind: WavefrontAlert
+metadata:
+  name: error-rate-alert
+  namespace: default
+spec:
+  alertType: CLASSIC
+  alertName: "High Error Rate"
+  condition: "ts(application.errors.count) / ts(application.requests.count) * 100 > 5"
+  displayExpression: "ts(application.errors.count) / ts(application.requests.count) * 100"
+  minutes: 5
+  resolveAfterMinutes: 5
+  severity: severe
+  tags:
+    - "errors"
+    - "reliability"
+    - "application"
+---
+# Example 4: Resource Utilization - Disk Space
+apiVersion: alertmanager.keikoproj.io/v1alpha1
+kind: WavefrontAlert
+metadata:
+  name: disk-space-alert
+  namespace: default
+spec:
+  alertType: CLASSIC
+  alertName: "Low Disk Space"
+  condition: "ts(kubernetes.node.filesystem.usage_pct) > 85"
+  displayExpression: "ts(kubernetes.node.filesystem.usage_pct)"
+  minutes: 15
+  resolveAfterMinutes: 5
+  severity: severe
+  tags:
+    - "disk"
+    - "infrastructure"
+    - "capacity"
+---
+# Example 5: Database Connections Alert
+apiVersion: alertmanager.keikoproj.io/v1alpha1
+kind: WavefrontAlert
+metadata:
+  name: db-connections-alert
+  namespace: default
+spec:
+  alertType: CLASSIC
+  alertName: "High Database Connections"
+  condition: "ts(database.connections.used) / ts(database.connections.max) * 100 > 80"
+  displayExpression: "ts(database.connections.used) / ts(database.connections.max) * 100"
+  minutes: 10
+  resolveAfterMinutes: 5
+  severity: severe
+  tags:
+    - "database"
+    - "connections"
+    - "capacity"
+---
+# Example 6: Memory Usage Alert with Templating (AlertsConfig)
+apiVersion: alertmanager.keikoproj.io/v1alpha1
+kind: AlertsConfig
+metadata:
+  name: memory-alerts-config
+  namespace: default
+spec:
+  globalGVK:
+    group: alertmanager.keikoproj.io
+    kind: WavefrontAlert
+    version: v1alpha1
+  globalParams:
+    minutes: 5
+    resolveAfterMinutes: 5
+    severity: severe
+  alerts:
+    memory-usage:
+      params:
+        alertName: "High Memory Usage - {{.Namespace}}"
+        condition: "ts(kubernetes.pod.memory.usage_bytes, namespace={{.Namespace}}) / ts(kubernetes.pod.memory.limit_bytes, namespace={{.Namespace}}) * 100 > 90"
+        displayExpression: "ts(kubernetes.pod.memory.usage_bytes, namespace={{.Namespace}}) / ts(kubernetes.pod.memory.limit_bytes, namespace={{.Namespace}}) * 100"
+        tags:
+          - "memory"
+          - "kubernetes"
+          - "{{.Namespace}}"
+---
+# Example 7: JVM Heap Usage Alert
+apiVersion: alertmanager.keikoproj.io/v1alpha1
+kind: WavefrontAlert
+metadata:
+  name: jvm-heap-alert
+  namespace: default
+spec:
+  alertType: CLASSIC
+  alertName: "High JVM Heap Usage"
+  condition: "ts(jvm.heap.used.percentage) > 85"
+  displayExpression: "ts(jvm.heap.used.percentage)"
+  minutes: 5
+  resolveAfterMinutes: 5
+  severity: severe
+  tags:
+    - "jvm"
+    - "heap"
+    - "java"
+---
+# Example 8: Network Traffic Alert
+apiVersion: alertmanager.keikoproj.io/v1alpha1
+kind: WavefrontAlert
+metadata:
+  name: network-traffic-alert
+  namespace: default
+spec:
+  alertType: CLASSIC
+  alertName: "High Network Traffic"
+  condition: "ts(network.bytes.total) > 1073741824"  # 1GB
+  displayExpression: "ts(network.bytes.total)"
+  minutes: 15
+  resolveAfterMinutes: 5
+  severity: severe
+  tags:
+    - "network"
+    - "traffic"
+    - "infrastructure"
