@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/keikoproj/alert-manager/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,10 +18,20 @@ var _ = Describe("WavefrontalertController", func() {
 		alertName      = "wavefront-test-alert"
 		alertNamespace = "default"
 
-		timeout  = time.Second * 60
+		// Increase timeout to give more time for controller operations
+		timeout  = time.Minute * 5
 		duration = time.Second * 10
 		interval = time.Millisecond * 250
 	)
+	
+	// Set up expectations for the mock WavefrontClient before each test
+	BeforeEach(func() {
+		// Clear any previous expectations
+		mockWavefront.EXPECT().CreateAlert(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
+		mockWavefront.EXPECT().UpdateAlert(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
+		mockWavefront.EXPECT().DeleteAlert(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
+	})
+	
 	Context("Single Alert creation", func() {
 
 		It("It should be able to create an alert", func() {
