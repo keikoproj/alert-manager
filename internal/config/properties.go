@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/keikoproj/alert-manager/internal/config/common"
 	"github.com/keikoproj/alert-manager/pkg/k8s"
 	"github.com/keikoproj/alert-manager/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"os"
 )
 
 var (
@@ -22,15 +24,32 @@ type Properties struct {
 }
 
 func init() {
-	log := log.Logger(context.Background(), "internal.config.properties", "init")
-
-	if os.Getenv("LOCAL") != "" {
-		err := LoadProperties("LOCAL")
+	logger := log.Logger(context.Background(), "config", "properties", "init")
+	// bypass Kubernetes client initialization when running tests
+	if strings.ToLower(os.Getenv("TEST_MODE")) == "true" {
+		logger.Info("TEST_MODE=true, skipping Kubernetes client initialization")
+		// Set default test properties
+		var err error
+		err = LoadProperties("test", nil)
 		if err != nil {
-			log.Error(err, "failed to load properties for local environment")
+			logger.Error(err, "failed to load test properties")
 			return
 		}
-		log.Info("Loaded properties in init func for tests")
+		logger.Info("Loaded properties in init func for tests")
+		return
+	}
+
+	// Check if KUBECONFIG is set and bypass client creation if running tests
+	if len(os.Getenv("KUBECONFIG")) == 0 && strings.ToLower(os.Getenv("LOCAL")) != "true" {
+		logger.Info("KUBECONFIG not set, skipping Kubernetes client initialization")
+		// Set default test properties
+		var err error
+		err = LoadProperties("test", nil)
+		if err != nil {
+			logger.Error(err, "failed to load test properties")
+			return
+		}
+		logger.Info("Loaded properties in init func for tests")
 		return
 	}
 
@@ -39,14 +58,14 @@ func init() {
 	// load properties into a global variable
 	err := LoadProperties("", res)
 	if err != nil {
-		log.Error(err, "failed to load properties")
+		logger.Error(err, "failed to load properties")
 		panic(err)
 	}
-	log.Info("Loaded properties in init func")
+	logger.Info("Loaded properties in init func")
 }
 
 func LoadProperties(env string, cm ...*v1.ConfigMap) error {
-	log := log.Logger(context.Background(), "internal.config.properties", "LoadProperties")
+	logger := log.Logger(context.Background(), "internal.config.properties", "LoadProperties")
 	Props = &Properties{}
 	// for local testing
 	if env != "" {
@@ -55,7 +74,7 @@ func LoadProperties(env string, cm ...*v1.ConfigMap) error {
 	}
 
 	if len(cm) == 0 || cm[0] == nil {
-		log.Error(fmt.Errorf("config map cannot be nil"), "config map cannot be nil")
+		logger.Error(fmt.Errorf("config map cannot be nil"), "config map cannot be nil")
 		return fmt.Errorf("config map cannot be nil")
 	}
 
@@ -66,10 +85,10 @@ func LoadProperties(env string, cm ...*v1.ConfigMap) error {
 	Props.wavefrontAPITokenSecretName = WavefrontAPITokenSecretName
 
 	WavefrontAPIUrl := cm[0].Data[common.WavefrontAPIUrl]
-	if WavefrontAPITokenSecretName == "" {
+	if WavefrontAPIUrl == "" {
 		msg := "wavefront api url must be provided and should be in format "
 		err := errors.New(msg)
-		log.Error(err, "unable to find wavefront api url in config map")
+		logger.Error(err, "unable to find wavefront api url in config map")
 		return err
 	}
 	Props.wavefrontAPIUrl = WavefrontAPIUrl
@@ -86,27 +105,27 @@ func (p *Properties) WavefrontAPIUrl() string {
 }
 
 func RunConfigMapInformer(ctx context.Context) {
-	log := log.Logger(context.Background(), "internal.config.properties", "RunConfigMapInformer")
+	logger := log.Logger(context.Background(), "internal.config.properties", "RunConfigMapInformer")
 	cmInformer := k8s.GetConfigMapInformer(ctx, common.AlertManagerNamespaceName, common.AlertManagerConfigMapName)
 	cmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: updateProperties,
 	},
 	)
-	log.Info("Starting config map informer")
+	logger.Info("Starting config map informer")
 	cmInformer.Run(ctx.Done())
-	log.Info("Cancelling config map informer")
+	logger.Info("Cancelling config map informer")
 }
 
 func updateProperties(old, new interface{}) {
-	log := log.Logger(context.Background(), "internal.config.properties", "updateProperties")
+	logger := log.Logger(context.Background(), "internal.config.properties", "updateProperties")
 	oldCM := old.(*v1.ConfigMap)
 	newCM := new.(*v1.ConfigMap)
 	if oldCM.ResourceVersion == newCM.ResourceVersion {
 		return
 	}
-	log.Info("Updating config map", "new revision ", newCM.ResourceVersion)
+	logger.Info("Updating config map", "new revision ", newCM.ResourceVersion)
 	err := LoadProperties("", newCM)
 	if err != nil {
-		log.Error(err, "failed to update config map")
+		logger.Error(err, "failed to update config map")
 	}
 }
