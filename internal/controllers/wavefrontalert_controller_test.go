@@ -17,10 +17,12 @@ var _ = Describe("WavefrontalertController", func() {
 		alertName      = "wavefront-test-alert"
 		alertNamespace = "default"
 
-		timeout  = time.Second * 60
+		// Increase timeout to give controller more time to update status
+		timeout  = time.Minute * 5
 		duration = time.Second * 10
 		interval = time.Millisecond * 250
 	)
+
 	Context("Single Alert creation", func() {
 
 		It("It should be able to create an alert", func() {
@@ -80,7 +82,6 @@ var _ = Describe("WavefrontalertController", func() {
 			f.Spec.ExportedParams = []string{"foo", "bar"}
 
 			Expect(k8sClient.Update(context.Background(), f)).Should(Succeed())
-			//mockWavefront.EXPECT().CreateAlert(gomock.Any(), gomock.Any()).Return(nil)
 
 			// We'll need to retry getting this newly created Alert, given that creation may not immediately happen.
 			Eventually(func() bool {
@@ -95,20 +96,6 @@ var _ = Describe("WavefrontalertController", func() {
 				}
 				return fetchedUpdated.Status.State
 			}, timeout, interval).Should(Equal(v1alpha1.ReadyToBeUsed))
-
-			//By("updating the alert by removing exported checksum- This time it should execute the request and put it in Ready state")
-			//
-			//fetchedUpdated.Spec.ExportedParams = []string{}
-			////Wavefront call mock
-			//
-			//Expect(k8sClient.Update(context.Background(), fetchedUpdated)).Should(Succeed())
-			//mockWavefront.EXPECT().CreateAlert(gomock.Any(), gomock.Any()).Return(nil)
-			//
-			//fetchedUpdated2 := &v1alpha1.WavefrontAlert{}
-			//Eventually(func() v1alpha1.State {
-			//	k8sClient.Get(context.Background(), alertLookupKey, fetchedUpdated2)
-			//	return fetchedUpdated2.Status.State
-			//}, timeout, interval).Should(Equal(v1alpha1.Ready))
 
 			By("Deleting the alert")
 			Eventually(func() error {

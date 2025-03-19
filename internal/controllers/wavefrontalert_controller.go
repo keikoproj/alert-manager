@@ -201,7 +201,17 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	var alert wf.Alert
 	r.convertAlertCR(ctx, &wfAlert, &alert)
 	if err := wavefront.ValidateAlertInput(ctx, &alert); err != nil {
+		log.Error(err, "Failed to validate wavefront alert input")
 		wfAlert.Status.LastChangeChecksum = lastChangeChecksum
+		wfAlert.Status.State = alertmanagerv1alpha1.Error
+		wfAlert.Status.ErrorDescription = err.Error()
+
+		// First update status directly to ensure it's set immediately
+		if updateErr := r.Status().Update(ctx, &wfAlert); updateErr != nil {
+			log.Error(updateErr, "Failed to update status immediately after validation error")
+		}
+
+		// Then use the standard error handler which may requeue
 		return r.UpdateIndividualWavefrontAlertStatusError(ctx, &wfAlert, alertmanagerv1alpha1.Error, err, errRequeueTime)
 	}
 
