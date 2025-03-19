@@ -8,16 +8,10 @@ OSNAME           ?= $(shell uname -s | tr A-Z a-z)
 KUBEBUILDER_VER  ?= 3.0.0
 KUBEBUILDER_ARCH ?= amd64
 ENVTEST_K8S_VERSION = 1.28.0
-KIND_VERSION     ?= 0.20.0
 
 # Tool Versions
 CONTROLLER_TOOLS_VERSION ?= v0.13.0
 KUSTOMIZE_VERSION ?= v3.8.7
-
-# Kind configuration
-KIND            ?= $(LOCALBIN)/kind
-KIND_CLUSTER_NAME ?= alert-manager-test
-KIND_K8S_VERSION ?= v1.25.3
 
 KUBECONFIG                  ?= $(HOME)/.kube/config
 LOCAL                       ?= true
@@ -95,24 +89,10 @@ setup-envtest: $(ENVTEST) ## Download and setup the test environment binaries
 	KUBEBUILDER_ASSETS=$(ENVTEST_ASSETS_DIR) $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir=$(ENVTEST_ASSETS_DIR)
 	@echo "Test environment binaries installed at $(ENVTEST_ASSETS_DIR)"
 
-kind: $(KIND) ## Download kind locally if necessary.
-	@echo "kind binary already exists at $(KIND)"
-
-$(KIND): $(LOCALBIN)
-	@echo "Installing kind..."
-	@curl -Lo $(KIND) "https://kind.sigs.k8s.io/dl/v$(KIND_VERSION)/kind-$(OSNAME)-amd64"
-	@chmod +x $(KIND)
-	@echo "kind binary installed at $(KIND)"
-
-# We're bypassing the mock/generate/manifests for the unit tests to simplify the process
-unit-test: ## Run only unit tests without CRD generation
-	@echo "Running unit tests only (no CRD generation)..."
-	TEST_MODE=true LOCAL=true PATH=$$PATH:$(GOBIN) go test ./internal/... ./pkg/... -v
-
-# We're creating a more focused test target that skips controllers
-util-test: ## Run only utility and package tests that don't require Kubernetes
-	@echo "Running utility tests only (skipping controllers)..."
-	TEST_MODE=true LOCAL=true PATH=$$PATH:$(GOBIN) go test ./internal/template/... ./internal/utils/... ./pkg/wavefront/... -v
+# Run unit tests on all code with proper mocks but without requiring the Kubernetes API
+unit-test: mock ## Run unit tests on all code with proper mocks
+	@echo "Running unit tests on all code..."
+	TEST_MODE=true LOCAL=true PATH=$$PATH:$(GOBIN) go test ./... -v -coverprofile cover.out
 
 # Run with properly setup test environment using the envtest approach
 envtest-test: setup-envtest fmt vet mock ## Run tests in envtest with the proper setup
