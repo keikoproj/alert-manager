@@ -6,5 +6,5 @@
 *       @keikoproj/authorized-approvers
 
 # Admins own root and CI.
-.github/** @keikoproj/keiko-admins @keikoproj/keiko-maintainers
-/*     @keikoproj/keiko-admins @keikoproj/keiko-maintainers
+.github/** @keikoproj/keiko-admins @keikoproj/keiko-maintainers @keikoproj/alert-manager-maintainers
+/*     @keikoproj/keiko-admins @keikoproj/keiko-maintainers @keikoproj/alert-manager-maintainers

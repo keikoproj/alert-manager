@@ -1,0 +1,17 @@
+apiVersion: alertmanager.keikoproj.io/v1alpha1
+kind: WavefrontAlert
+metadata:
+  name: sample-cpu-alert
+  namespace: default
+spec:
+  alertType: CLASSIC
+  alertName: "High CPU Usage Alert"
+  condition: "ts(kubernetes.pod.cpu.usage_rate) > 80"
+  displayExpression: "ts(kubernetes.pod.cpu.usage_rate)"
+  minutes: 5
+  resolveAfterMinutes: 5
+  severity: "severe"
+  tags:
+    - "kubernetes"
+    - "cpu"
+    - "sample"
