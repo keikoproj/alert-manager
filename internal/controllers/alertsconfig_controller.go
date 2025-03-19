@@ -44,6 +44,26 @@ const (
 	alertsConfigFinalizerName = "alertsconfig.finalizers.alertmanager.keikoproj.io"
 )
 
+// Define a custom type for context keys to avoid collisions
+type contextKey string
+
+const (
+	requestIDKey contextKey = "request_id"
+)
+
+// WithRequestID adds a request ID to the context
+// This function is exported for testing purposes
+func WithRequestID(ctx context.Context, requestID uuid.UUID) context.Context {
+	return context.WithValue(ctx, requestIDKey, requestID)
+}
+
+// GetRequestID retrieves the request ID from the context
+// This function is exported for testing purposes
+func GetRequestID(ctx context.Context) (uuid.UUID, bool) {
+	id, ok := ctx.Value(requestIDKey).(uuid.UUID)
+	return id, ok
+}
+
 // AlertsConfigReconciler reconciles a AlertsConfig object
 type AlertsConfigReconciler struct {
 	client.Client
@@ -75,7 +95,7 @@ func (r *AlertsConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			fmt.Println(err)
 		}
 	}()
-	ctx = context.WithValue(ctx, requestId, uuid.New())
+	ctx = WithRequestID(ctx, uuid.New())
 	log := log.Logger(ctx, "controllers", "alertconfig_controller", "Reconcile")
 	log = log.WithValues("alertconfig_cr", req.NamespacedName)
 	log.Info("Start of the request")
@@ -295,7 +315,10 @@ func (r *AlertsConfigReconciler) DeleteIndividualAlert(ctx context.Context, aler
 	currStatus := wfAlert.Status.AlertsStatus
 	delete(currStatus, alertName)
 	wfAlert.Status.AlertsStatus = currStatus
-	r.CommonClient.UpdateStatus(ctx, &wfAlert, wfAlert.Status.State)
+	if _, err := r.CommonClient.UpdateStatus(ctx, &wfAlert, wfAlert.Status.State); err != nil {
+		log.Error(err, "Failed to update WavefrontAlert status")
+		// We continue since the main purpose is to delete the alert, which was already done
+	}
 	return nil
 }
 

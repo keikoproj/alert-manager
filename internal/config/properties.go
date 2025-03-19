@@ -29,9 +29,7 @@ func init() {
 	if strings.ToLower(os.Getenv("TEST_MODE")) == "true" {
 		logger.Info("TEST_MODE=true, skipping Kubernetes client initialization")
 		// Set default test properties
-		var err error
-		err = LoadProperties("test", nil)
-		if err != nil {
+		if err := LoadProperties("test", nil); err != nil {
 			logger.Error(err, "failed to load test properties")
 			return
 		}
@@ -43,9 +41,7 @@ func init() {
 	if len(os.Getenv("KUBECONFIG")) == 0 && strings.ToLower(os.Getenv("LOCAL")) != "true" {
 		logger.Info("KUBECONFIG not set, skipping Kubernetes client initialization")
 		// Set default test properties
-		var err error
-		err = LoadProperties("test", nil)
-		if err != nil {
+		if err := LoadProperties("test", nil); err != nil {
 			logger.Error(err, "failed to load test properties")
 			return
 		}
@@ -56,8 +52,7 @@ func init() {
 	res := k8s.NewK8sSelfClientDoOrDie().GetConfigMap(context.Background(), common.AlertManagerNamespaceName, common.AlertManagerConfigMapName)
 
 	// load properties into a global variable
-	err := LoadProperties("", res)
-	if err != nil {
+	if err := LoadProperties("", res); err != nil {
 		logger.Error(err, "failed to load properties")
 		panic(err)
 	}
@@ -69,7 +64,6 @@ func LoadProperties(env string, cm ...*v1.ConfigMap) error {
 	Props = &Properties{}
 	// for local testing
 	if env != "" {
-
 		return nil
 	}
 
@@ -107,10 +101,15 @@ func (p *Properties) WavefrontAPIUrl() string {
 func RunConfigMapInformer(ctx context.Context) {
 	logger := log.Logger(context.Background(), "internal.config.properties", "RunConfigMapInformer")
 	cmInformer := k8s.GetConfigMapInformer(ctx, common.AlertManagerNamespaceName, common.AlertManagerConfigMapName)
-	cmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	// AddEventHandler returns a handle and a registration error.
+	// We don't need to use the handle as we run the informer for the lifetime of the context
+	_, regErr := cmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: updateProperties,
-	},
-	)
+	})
+	if regErr != nil {
+		logger.Error(regErr, "Failed to register event handler")
+		return
+	}
 	logger.Info("Starting config map informer")
 	cmInformer.Run(ctx.Done())
 	logger.Info("Cancelling config map informer")
@@ -124,8 +123,7 @@ func updateProperties(old, new interface{}) {
 		return
 	}
 	logger.Info("Updating config map", "new revision ", newCM.ResourceVersion)
-	err := LoadProperties("", newCM)
-	if err != nil {
+	if err := LoadProperties("", newCM); err != nil {
 		logger.Error(err, "failed to update config map")
 	}
 }

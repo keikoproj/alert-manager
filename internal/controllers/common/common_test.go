@@ -3,7 +3,6 @@ package common_test
 import (
 	"context"
 	"fmt"
-	"time"
 
 	wf "github.com/WavefrontHQ/go-wavefront-management-api"
 	alertmanagerv1alpha1 "github.com/keikoproj/alert-manager/api/v1alpha1"
@@ -22,10 +21,6 @@ var _ = Describe("Common", func() {
 	const (
 		alertName      = "wavefront-test-alert"
 		alertNamespace = "default"
-
-		timeout  = time.Second * 60
-		duration = time.Second * 10
-		interval = time.Millisecond * 250
 	)
 
 	Context("Patch Status  and Update status test cases", func() {

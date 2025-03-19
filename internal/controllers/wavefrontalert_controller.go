@@ -47,8 +47,6 @@ import (
 const (
 	wavefrontAlertFinalizerName = "wavefrontalert.finalizers.alertmanager.keikoproj.io"
 	requestId                   = "request_id"
-	//2 minutes
-	maxWaitTime = 120000
 	//30 seconds
 	errRequeueTime = 30000
 )
@@ -138,7 +136,7 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		// Check for exportedParams checksum
 		exist, reqChecksum := utils.ExportParamsChecksum(ctx, wfAlert.Spec.ExportedParams)
 		// if status doesn't have checksum- it means its very first request
-		if exist && &wfAlert.Status.ExportParamsChecksum != nil {
+		if exist && wfAlert.Status.ExportParamsChecksum != "" {
 			log.Info("checksum difference", "reqChecksum", reqChecksum, "checksum", wfAlert.Status.ExportParamsChecksum)
 			if reqChecksum != wfAlert.Status.ExportParamsChecksum {
 				proceed = false
@@ -242,7 +240,7 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		wfAlert.Status.RetryCount = 0
 		wfAlert.Status.AlertsStatus = alertsStatus
 		wfAlert.Status.ObservedGeneration = wfAlert.ObjectMeta.Generation
-		return r.CommonClient.UpdateStatus(ctx, &wfAlert, alertmanagerv1alpha1.Ready)
+		return r.CommonClient.UpdateStatus(ctx, &wfAlert, alertmanagerv1alpha1.Ready, errRequeueTime)
 	}
 
 	// existing alert - Perform the updateAlert one by one
@@ -350,7 +348,9 @@ func (r *WavefrontAlertReconciler) convertAlertCR(ctx context.Context, wfAlert *
 			State:            alertmanagerv1alpha1.MalformedSpec,
 		}
 		// There is no use of requeue in this case
-		r.CommonClient.UpdateStatus(ctx, wfAlert, alertmanagerv1alpha1.MalformedSpec)
+		if _, updateErr := r.CommonClient.UpdateStatus(ctx, wfAlert, alertmanagerv1alpha1.MalformedSpec); updateErr != nil {
+			log.Error(updateErr, "Failed to update WavefrontAlert status")
+		}
 	}
 }
 
@@ -369,12 +369,10 @@ func (r *WavefrontAlertReconciler) UpdateIndividualWavefrontAlertStatusError(
 	err error,
 	requeueTime ...float64,
 ) (ctrl.Result, error) {
-	log := log.Logger(ctx, "controllers", "wavefrontalert_controller", "UpdateIndividualWavefrontAlertError")
-	log = log.WithValues("wavefront_cr", wfAlert.Name, "namespace", wfAlert.Namespace)
-
-	wfAlert.Status.RetryCount = wfAlert.Status.RetryCount + 1
-	wfAlert.Status.ErrorDescription = err.Error()
-	wfAlert.Status.State = state
+	log := log.Logger(ctx, "controllers", "wavefront_alerts_controller", "UpdateIndividualWavefrontAlertStatusError")
+	if len(requeueTime) == 0 {
+		requeueTime = []float64{errRequeueTime}
+	}
 
 	log.Error(err, "error occurred in wavefront alert", "wavefrontAlert", wfAlert.Name)
 	r.Recorder.Event(wfAlert, v1.EventTypeWarning, err.Error(), fmt.Sprintf("error occurred in wavefront alert %s", wfAlert.Name))

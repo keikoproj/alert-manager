@@ -59,18 +59,18 @@ var _ = Describe("WavefrontalertController", func() {
 
 			// We'll need to retry getting this newly created Alert, given that creation may not immediately happen.
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, alertLookupKey, createdAlert)
-				if err != nil {
-					return false
-				}
-				return true
+				return k8sClient.Get(ctx, alertLookupKey, createdAlert) == nil
 			}, timeout, interval).Should(BeTrue())
 			// Let's make sure our alert value is there by verifying the condition
 			Expect(createdAlert.Spec.Condition).Should(Equal("ts(status.health)"))
 			// Should throw error since severity is missing in the request
 			f := &v1alpha1.WavefrontAlert{}
 			Eventually(func() v1alpha1.State {
-				k8sClient.Get(context.Background(), alertLookupKey, f)
+				err := k8sClient.Get(context.Background(), alertLookupKey, f)
+				if err != nil {
+					GinkgoT().Logf("Error getting WavefrontAlert: %v", err)
+					return ""
+				}
 				return f.Status.State
 			}, timeout, interval).Should(Equal(v1alpha1.Error))
 
@@ -84,15 +84,15 @@ var _ = Describe("WavefrontalertController", func() {
 
 			// We'll need to retry getting this newly created Alert, given that creation may not immediately happen.
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, alertLookupKey, createdAlert)
-				if err != nil {
-					return false
-				}
-				return true
+				return k8sClient.Get(ctx, alertLookupKey, createdAlert) == nil
 			}, timeout, interval).Should(BeTrue())
 			fetchedUpdated := &v1alpha1.WavefrontAlert{}
 			Eventually(func() v1alpha1.State {
-				k8sClient.Get(context.Background(), alertLookupKey, fetchedUpdated)
+				err := k8sClient.Get(context.Background(), alertLookupKey, fetchedUpdated)
+				if err != nil {
+					GinkgoT().Logf("Error getting updated WavefrontAlert: %v", err)
+					return ""
+				}
 				return fetchedUpdated.Status.State
 			}, timeout, interval).Should(Equal(v1alpha1.ReadyToBeUsed))
 
@@ -113,7 +113,9 @@ var _ = Describe("WavefrontalertController", func() {
 			By("Deleting the alert")
 			Eventually(func() error {
 				f := &v1alpha1.WavefrontAlert{}
-				k8sClient.Get(context.Background(), alertLookupKey, f)
+				if err := k8sClient.Get(context.Background(), alertLookupKey, f); err != nil {
+					return err
+				}
 				return k8sClient.Delete(context.Background(), f)
 			}, timeout, interval).Should(Succeed())
 

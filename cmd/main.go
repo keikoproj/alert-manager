@@ -108,10 +108,14 @@ func main() {
 		os.Exit(1)
 	}
 	wavefront.ApiToken = string(wfToken)
-	wfClient, err := wavefront.NewClient(ctx, &wf.Config{
+	wfClient, wfErr := wavefront.NewClient(ctx, &wf.Config{
 		Address: config.Props.WavefrontAPIUrl(),
 		Token:   string(wfToken),
 	})
+	if wfErr != nil {
+		log.Error(wfErr, "unable to create wavefront client")
+		os.Exit(1)
+	}
 
 	if err = (&controllers.WavefrontAlertReconciler{
 		Client:          mgr.GetClient(),
