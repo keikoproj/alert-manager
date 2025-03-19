@@ -30,8 +30,6 @@ CLUSTER_NAME                ?= k8s_test_keiko
 CLUSTER_OIDC_ISSUER_URL     ?= https://google.com/OIDC
 
 LOCALBIN ?= $(shell pwd)/bin
-$(LOCALBIN):
-	mkdir -p $(LOCALBIN)
 
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 
@@ -106,28 +104,6 @@ $(KIND): $(LOCALBIN)
 	@chmod +x $(KIND)
 	@echo "kind binary installed at $(KIND)"
 
-.PHONY: kind-cluster
-kind-cluster: kind ## Create a kind cluster for testing
-	@echo "Creating kind cluster $(KIND_CLUSTER_NAME)..."
-	@if ! $(KIND) get clusters | grep -q $(KIND_CLUSTER_NAME); then \
-		$(KIND) create cluster --name $(KIND_CLUSTER_NAME) --image kindest/node:$(KIND_K8S_VERSION) --wait 5m; \
-	else \
-		echo "kind cluster $(KIND_CLUSTER_NAME) already exists"; \
-	fi
-	@echo "Setting kubeconfig to use kind cluster"
-	$(KIND) get kubeconfig --name $(KIND_CLUSTER_NAME) > $(LOCALBIN)/kind-kubeconfig
-	@echo "Kind cluster $(KIND_CLUSTER_NAME) is ready"
-
-.PHONY: kind-delete
-kind-delete: kind ## Delete the kind test cluster
-	@echo "Deleting kind cluster $(KIND_CLUSTER_NAME)..."
-	@if $(KIND) get clusters | grep -q $(KIND_CLUSTER_NAME); then \
-		$(KIND) delete cluster --name $(KIND_CLUSTER_NAME); \
-		echo "Kind cluster $(KIND_CLUSTER_NAME) has been deleted"; \
-	else \
-		echo "No kind cluster named $(KIND_CLUSTER_NAME) found"; \
-	fi
-
 # We're bypassing the mock/generate/manifests for the unit tests to simplify the process
 unit-test: ## Run only unit tests without CRD generation
 	@echo "Running unit tests only (no CRD generation)..."
@@ -145,21 +121,6 @@ envtest-test: setup-envtest fmt vet mock ## Run tests in envtest with the proper
 	KUBEBUILDER_ASSETS="$(ENVTEST_ASSETS_DIR)" \
 	LOCAL=$(LOCAL) \
 	PATH=$$PATH:$(GOBIN) go test ./... -v
-
-# Use the Kind cluster for complete tests 
-test-kind: kind-cluster ## Run tests using a kind cluster.
-	@echo "Running tests with kind cluster..."
-	TEST_MODE=true \
-	KUBECONFIG=$(LOCALBIN)/kind-kubeconfig \
-	LOCAL=$(LOCAL) \
-	RESTRICTED_POLICY_RESOURCES=$(RESTRICTED_POLICY_RESOURCES) \
-	RESTRICTED_S3_RESOURCES=$(RESTRICTED_S3_RESOURCES) \
-	AWS_ACCOUNT_ID=$(AWS_ACCOUNT_ID) \
-	AWS_REGION=$(AWS_REGION) \
-	CLUSTER_NAME=$(CLUSTER_NAME) \
-	CLUSTER_OIDC_ISSUER_URL="$(CLUSTER_OIDC_ISSUER_URL)" \
-	DEFAULT_TRUST_POLICY=$(DEFAULT_TRUST_POLICY) \
-	PATH=$$PATH:$(GOBIN) go test ./... -coverprofile cover.out
 
 test: envtest-test ## Main test target - uses envtest setup with proper binaries
 
@@ -225,3 +186,6 @@ ci-test: setup-envtest fmt vet mock ## Run comprehensive tests for CI pipelines
 	KUBEBUILDER_ASSETS="$(ENVTEST_ASSETS_DIR)" \
 	LOCAL=$(LOCAL) \
 	PATH=$$PATH:$(GOBIN) go test ./... -v -coverprofile cover.out
+
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
