@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alert-manager-configmap
+  namespace: alert-manager-system
+data:
+  app.mode: "dev"
+  base.url: "REPLACE_MONITORING_URL"
+  backend.type: "wavefront"

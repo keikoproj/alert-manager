@@ -1,130 +1,161 @@
 # alert-manager
 
-Generic alerts management inside k8s cluster using CRD. The idea is to allow users to create monitoring alerts along with application deployment.
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)][GithubMaintainedUrl]
+[![PR](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)][GithubPrsUrl]
+[![slack](https://img.shields.io/badge/slack-join%20the%20conversation-ff69b4.svg)][SlackUrl]
 
-Following monitoring solutions are supported at the moment and will be adding support for other monitoring solutions depends on the requirement
+[![Release][ReleaseImg]][ReleaseUrl]
+[![Build Status][BuildStatusImg]][BuildMasterUrl]
+[![codecov][CodecovImg]][CodecovUrl]
+[![Go Report Card][GoReportImg]][GoReportUrl]
 
-1. Wavefront
-2. Splunk (Phase 2)
+A Kubernetes operator that enables management of monitoring alerts as custom resources within your Kubernetes clusters.
 
-### High Level Architecture
+## Table of Contents
+- [Overview](#overview)
+- [Requirements](#requirements)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Quick Start](#quick-start)
+- [Usage](#usage)
+- [Documentation](#documentation)
+- [Version Compatibility](#version-compatibility)
+- [Contributing](#contributing)
+
+## Overview
+
+alert-manager enables you to define and manage monitoring alerts as Kubernetes resources, allowing you to:
+
+- Create alerts alongside your application deployments
+- Version control your alert definitions
+- Apply GitOps practices to your monitoring configuration
+- Scale efficiently with templated alerts
+
+Currently supported monitoring backends include:
+- Wavefront
+- Splunk (Phase 2)
+
+## Requirements
+
+- Kubernetes cluster v1.16+
+- kubectl configured with admin access
+- For Wavefront alerts: A Wavefront account and API token
+- Reliable connectivity to your monitoring backend systems
+
+## Features
+
+- **Declarative alert management** - Define alerts using Kubernetes custom resources
+- **Multiple monitoring systems** - Support for different monitoring backends
+- **Templating** - Create reusable alert templates across applications
+- **Scalable** - AlertsConfig allows efficient alert management without etcd bloat
+- **GitOps compatible** - Manage alerts through the same pipeline as your applications
+
+## Architecture
 
 ![Alert Manager High Architecture](docs/images/alert-manager-arch.png)
 
-Modules involved:
+alert-manager follows a Kubernetes operator pattern that watches for custom resources and reconciles them with the target monitoring systems.
 
-1. WavefrontAlert CRD (Specific to monitoring software)
-2. AlertsConfig CRD (Generic for all the alerts)
-3. Alert-Manager Controller
+For a more detailed view of the architecture including component interactions and workflows, see the [Architecture Documentation](docs/architecture.md).
 
-##### WavefrontAlert CRD
-Monitoring software specific CRDs. For example, WavefrontAlert CRD represents all the fields which are needed to create
-alerts in wavefront.
+## Quick Start
 
+To get started with alert-manager:
 
-##### AlertsConfig CRD
-Above WavefrontAlert CRD can be used for small scale alert setup but if you have a use case where same wavefront alert type needs to be
-created for multiple applications (for example: api request count) with slight changes, we might be looking at large number of CRs which might
-cause space issues in etcd and also other latency issues. For example, 100 alerts for 450 applications/clusters could result in 45000 CRs
-if we want to maintain 1:1 relationship for an alert.
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/keikoproj/alert-manager.git
+   cd alert-manager
+   ```
 
-To avoid this problem, introducing new CRD “AlertsConfig” which can represent multiple alert configurations in a single CR
+2. Use the installation script to deploy alert-manager:
+   ```bash
+   # Install with the provided script (recommended)
+   ./hack/install.sh <namespace> <monitoring_backend_url> <api_token>
+   
+   # Example:
+   ./hack/install.sh alert-manager-system wavefront.example.com my-api-token
+   ```
 
-AlertsConfig CRD represents the alert configuration and can be used to represent multiple alerts in a single CR. 
-This can be used per application/cluster to represent all the alerts specific to that cluster. 
-This changes the total number of CRs to represent cluster alert management to 100 + 450 = 550 in above example.
+Alternatively, you can install manually:
 
-Simplest usage is, we parameterize application name using go template in WavefrontAlert and pass that value in AlertsConfig CR. 
-For more specific and complex usages, please check here
+1. Create a Secret with your monitoring system credentials:
+   ```bash
+   # Example for Wavefront
+   kubectl apply -f docs/sample-secret.yaml
+   ```
 
-##### Alert-Manager Controller
-Alert Controller will handle reconcile of alert and alert config CRs and manage the alerts directly in the target system(ex: Wavefront).
+2. Deploy the controller and CRDs:
+   ```bash
+   make deploy
+   ```
 
-Alert and AlertsConfig association
-Alert CR (for ex: WavefrontAlert) status will include AlertsConfig CR name along with the target name which could help represent the targets to which that alert has been applied to.
+For detailed installation instructions, configuration options, and prerequisites, see the [Quick Start Guide](docs/quickstart.md).
 
-Alert controller will update the Alert CR status as soon as there is a change in AlertsConfig and also Alert controller will take care of applying the modified alert if there is a change in the Alert Spec.
+## Usage
 
-
-### Usage
-
-Sample Wavefront alert
-
-```yaml
-apiVersion: alertmanager.keikoproj.io/v1alpha1
-kind: WavefrontAlert
-metadata:
-  name: wavefrontalert-sample
-spec:
-  # Add fields here
-  alertType: CLASSIC
-  alertName: test-alert2
-  condition: ts(status.health)
-  displayExpression: ts(status.health)
-  minutes: 50
-  resolveAfterMinutes: 5
-  severity: severe
-  tags:
-    - test-alert
-    - something-weird
-```
-
-and you should see the wavefront alert info in the status if the alert got successfully created
+Here's a simple example of a WavefrontAlert:
 
 ```yaml
 apiVersion: alertmanager.keikoproj.io/v1alpha1
 kind: WavefrontAlert
 metadata:
-  annotations:
-    kubectl.kubernetes.io/last-applied-configuration: |
-      {"apiVersion":"alertmanager.keikoproj.io/v1alpha1","kind":"WavefrontAlert","metadata":{"annotations":{},"name":"wavefrontalert-sample","namespace":"alert-manager-system"},"spec":{"alertName":"test-alert2","alertType":"CLASSIC","condition":"ts(status.health)","displayExpression":"ts(status.health)","minutes":50,"resolveAfterMinutes":5,"severity":"severe","tags":["test-alert","something-weird"]}}
-  creationTimestamp: "2021-08-26T19:20:27Z"
-  finalizers:
-  - wavefrontalert.finalizers.alertmanager.keikoproj.io
-  generation: 8
-  name: wavefrontalert-sample
-  namespace: alert-manager-system
-  resourceVersion: "293921"
-  uid: 7d108d5c-30a6-4f80-8acc-cdb6ef5fb785
+  name: cpu-high-alert
 spec:
-  alertName: test-alert2
   alertType: CLASSIC
-  condition: ts(status.health)
-  displayExpression: ts(status.health)
-  minutes: 50
+  alertName: high-cpu-usage
+  condition: ts("kubernetes.node.cpu.usage") > 80
+  minutes: 5
   resolveAfterMinutes: 5
-  severity: severe
+  severity: warn
   tags:
-  - test-alert
-  - something-weird
-status:
-  alertsStatus:
-    test-alert2:
-      alertName: test-alert2
-      associatedAlert: {}
-      associatedAlertsConfig: {}
-      id: "1630005627450"
-      lastChangeChecksum: 3a86ae56b46c66d51cf270dde6c469b7
-      link: https://try.wavefront.com/alerts/1630005627450
-      state: Ready
-  lastChangeChecksum: 3a86ae56b46c66d51cf270dde6c469b7
-  observedGeneration: 8
-  state: Ready
+    - kubernetes
+    - cpu
 ```
-For more template alerts user case and alerts config usage please refer here
 
-### Installation
-1. Update the config map with the target urls. For example: For WavefrontAlerts, it is pointed to try.wavefront.com and you must change it to your target url
-2. Create a Secret with wavefront Api Key (for WavefrontAlerts). Please refer Sample Secret [here](docs/Sample-Secret.yaml)
-3. Point your kubeconfig file to the k8s cluster where you want to create. ex: export KUBECONFIG=~/.kube/config
-4. make deploy
+For more examples and detailed usage information, see the [Quick Start Guide](docs/quickstart.md).
 
-### ❤ Contributing ❤
+## Documentation
 
-Please see [CONTRIBUTING.md](.github/CONTRIBUTING.md).
+- [Architecture Documentation](docs/architecture.md)
+- [Quick Start Guide](docs/quickstart.md)
+- [Configuration Options](docs/configmap-properties.md)
+- [Developer Guide](docs/developer-guide.md)
+- [Troubleshooting Guide](docs/troubleshooting.md)
 
-### Developer Guide
+## Version Compatibility
 
-Please see [DEVELOPER.md](.github/DEVELOPER.md).
+| alert-manager Version | Kubernetes Version | Notable Features | Go Version |
+|-----------------------|--------------------|------------------|------------|
+| v0.5.0                | 1.22+              | Improved scalability, enhanced status reporting | 1.19+ |
+| v0.4.0                | 1.20 - 1.24        | Template alerting, Splunk integration (beta) | 1.18+ | 
+| v0.3.0                | 1.18 - 1.22        | Multi-cluster support, alert batching | 1.16+ |
+| v0.2.0                | 1.16 - 1.20        | Initial AlertsConfig implementation | 1.15+ |
+| v0.1.0                | 1.16+              | Initial release with Wavefront support | 1.13+ |
 
+For detailed information about each release, see the [GitHub Releases page](https://github.com/keikoproj/alert-manager/releases).
 
+## Contributing
+
+Please see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+Apache License 2.0, see [LICENSE](LICENSE).
+
+<!-- Markdown link -->
+[GithubMaintainedUrl]: https://github.com/keikoproj/alert-manager/graphs/commit-activity
+[GithubPrsUrl]: https://github.com/keikoproj/alert-manager/pulls
+[SlackUrl]: https://keikoproj.slack.com/messages/alert-manager
+
+[ReleaseImg]: https://img.shields.io/github/release/keikoproj/alert-manager.svg
+[ReleaseUrl]: https://github.com/keikoproj/alert-manager/releases/latest
+
+[BuildStatusImg]: https://github.com/keikoproj/alert-manager/actions/workflows/unit_test.yaml/badge.svg
+[BuildMasterUrl]: https://github.com/keikoproj/alert-manager/actions/workflows/unit_test.yaml
+
+[CodecovImg]: https://codecov.io/gh/keikoproj/alert-manager/branch/master/graph/badge.svg
+[CodecovUrl]: https://codecov.io/gh/keikoproj/alert-manager
+
+[GoReportImg]: https://goreportcard.com/badge/github.com/keikoproj/alert-manager
+[GoReportUrl]: https://goreportcard.com/report/github.com/keikoproj/alert-manager

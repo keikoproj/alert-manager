@@ -1,0 +1,33 @@
+apiVersion: alertmanager.keikoproj.io/v1alpha1
+kind: AlertsConfig
+metadata:
+  name: sample-alerts-config
+  namespace: default
+spec:
+  globalGVK:
+    group: alertmanager.keikoproj.io
+    kind: WavefrontAlert
+    version: v1alpha1
+  globalParams:
+    severity: severe
+    minutes: 5
+    resolveAfterMinutes: 5
+  alerts:
+    cpu-alert:
+      params:
+        alertName: "High CPU Usage {{.Namespace}}"
+        condition: "ts(kubernetes.pod.cpu.usage_rate, namespace={{.Namespace}}) > 80"
+        displayExpression: "ts(kubernetes.pod.cpu.usage_rate, namespace={{.Namespace}})"
+        tags:
+          - "kubernetes"
+          - "cpu"
+          - "{{.Namespace}}"
+    memory-alert:
+      params:
+        alertName: "High Memory Usage {{.Namespace}}"
+        condition: "ts(kubernetes.pod.memory.usage_bytes, namespace={{.Namespace}}) > 1073741824"
+        displayExpression: "ts(kubernetes.pod.memory.usage_bytes, namespace={{.Namespace}})"
+        tags:
+          - "kubernetes"
+          - "memory"
+          - "{{.Namespace}}"

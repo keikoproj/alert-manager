@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wavefront-api-token
+  namespace: alert-manager-system
+type: Opaque
+stringData:
+  wavefront-api-token: "YOUR_API_TOKEN_HERE"
