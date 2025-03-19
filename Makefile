@@ -16,12 +16,6 @@ KUSTOMIZE_VERSION ?= v3.8.7
 KUBECONFIG                  ?= $(HOME)/.kube/config
 LOCAL                       ?= true
 TEST_MODE                   ?= true
-RESTRICTED_POLICY_RESOURCES ?= policy-resource
-RESTRICTED_S3_RESOURCES     ?= s3-resource
-AWS_ACCOUNT_ID              ?= 123456789012
-AWS_REGION                  ?= us-west-2
-CLUSTER_NAME                ?= k8s_test_keiko
-CLUSTER_OIDC_ISSUER_URL     ?= https://google.com/OIDC
 
 LOCALBIN ?= $(shell pwd)/bin
 
@@ -82,27 +76,17 @@ mock: ## Generate mock implementations for interfaces
 
 ENVTEST_ASSETS_DIR=$(shell pwd)/bin/k8s/$(ENVTEST_K8S_VERSION)-$(OSNAME)-$(shell go env GOARCH)
 
-.PHONY: setup-envtest
-setup-envtest: $(ENVTEST) ## Download and setup the test environment binaries
-	mkdir -p $(LOCALBIN)/k8s
-	@echo "Setting up envtest with k8s version $(ENVTEST_K8S_VERSION)"
-	KUBEBUILDER_ASSETS=$(ENVTEST_ASSETS_DIR) $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir=$(ENVTEST_ASSETS_DIR)
-	@echo "Test environment binaries installed at $(ENVTEST_ASSETS_DIR)"
-
 # Run unit tests on all code with proper mocks but without requiring the Kubernetes API
 unit-test: mock ## Run unit tests on all code with proper mocks
 	@echo "Running unit tests on all code..."
 	TEST_MODE=true LOCAL=true PATH=$$PATH:$(GOBIN) go test ./... -v -coverprofile cover.out
 
-# Run with properly setup test environment using the envtest approach
-envtest-test: setup-envtest fmt vet mock ## Run tests in envtest with the proper setup
-	@echo "Running all tests using envtest..."
+test: mock fmt vet envtest ## Run tests.
+	@echo "Running tests with envtest..."
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
 	TEST_MODE=true \
-	KUBEBUILDER_ASSETS="$(ENVTEST_ASSETS_DIR)" \
 	LOCAL=$(LOCAL) \
-	PATH=$$PATH:$(GOBIN) go test ./... -v
-
-test: envtest-test ## Main test target - uses envtest setup with proper binaries
+	PATH=$$PATH:$(GOBIN) go test ./... -v -coverprofile cover.out
 
 ##@ Build
 
@@ -155,17 +139,6 @@ $(KUSTOMIZE): $(LOCALBIN)
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
-
-##@ CI
-
-# Integration test target for CI - combines all tests and generates coverage report
-.PHONY: ci-test
-ci-test: setup-envtest fmt vet mock ## Run comprehensive tests for CI pipelines
-	@echo "Running comprehensive CI tests with coverage..."
-	TEST_MODE=true \
-	KUBEBUILDER_ASSETS="$(ENVTEST_ASSETS_DIR)" \
-	LOCAL=$(LOCAL) \
-	PATH=$$PATH:$(GOBIN) go test ./... -v -coverprofile cover.out
 
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)

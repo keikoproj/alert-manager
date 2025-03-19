@@ -48,17 +48,11 @@ jobs:
         run: |
           make mock
           
-      - name: Setup environment for testing
-        env:
-          KUBEBUILDER_ARCH: ${{ matrix.arch }}
-        run: |
-          make setup-envtest
-          
       - name: Run integration tests with envtest
         env:
           KUBEBUILDER_ARCH: ${{ matrix.arch }}
         run: |
-          make envtest-test
+          make test
           
       - name: Upload coverage
         uses: codecov/codecov-action@v3

@@ -27,8 +27,7 @@ jobs:
           
       - name: Install required tools
         run: |
-          go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
-          go install github.com/golang/mock/mockgen@v1.6.0
+          make envtest
           
       - name: Generate mocks
         run: |
@@ -36,7 +35,7 @@ jobs:
           
       - name: Run comprehensive tests
         run: |
-          make ci-test
+          make test
 
   build-and-push:
     name: Build and Push Multi-Arch Images
