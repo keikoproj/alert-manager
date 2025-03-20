@@ -85,14 +85,13 @@ ENVTEST_ASSETS_DIR=$(LOCALBIN)
 # Run unit tests on all code with proper mocks but without requiring the Kubernetes API
 unit-test: mock ## Run unit tests on all code with proper mocks
 	@echo "Running unit tests on all code..."
-	TEST_MODE=true LOCAL=true PATH=$$PATH:$(GOBIN) go test ./... -v -coverprofile cover.out
+	LOCAL=true PATH=$$PATH:$(GOBIN) go test ./... -v -coverprofile cover.out
 
 test: mock manifests generate fmt vet envtest ## Run tests.
 	@echo "Running tests with envtest..."
 	KUBECONFIG=$(KUBECONFIG) \
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
-	TEST_MODE=true \
-	LOCAL=$(LOCAL) \
+	LOCAL=true \
 	RESTRICTED_POLICY_RESOURCES=$(RESTRICTED_POLICY_RESOURCES) \
 	RESTRICTED_S3_RESOURCES=$(RESTRICTED_S3_RESOURCES) \
 	AWS_ACCOUNT_ID=$(AWS_ACCOUNT_ID) \
