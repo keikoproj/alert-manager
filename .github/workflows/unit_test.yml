@@ -8,11 +8,6 @@ on:
   # For direct pushes to master only
   push:
     branches: [ master ]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '.github/**'
-      - '!.github/workflows/unit_test.yml'
 
 # Prevent duplicate workflow runs
 concurrency:
@@ -27,7 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        go-version: [1.21.x]
+        go-version: [1.24.x]
         arch: [amd64, arm64]
     steps:
       - name: Check out code

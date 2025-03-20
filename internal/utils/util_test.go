@@ -66,7 +66,7 @@ var _ = Describe("Util", func() {
 			}, map[string]string{})
 			It("resp should not be empty", func() {
 				Expect(flag).To(BeTrue())
-				Expect(resp).To(Equal("bad972fbf22115a55bb9803eddbeb879"))
+				Expect(resp).To(Equal("cc57a3bd14055f7abafa726652854821175ae72e09a32cf9baad513d2084f493"))
 			})
 		})
 		Context("Overwriting global param", func() {
@@ -79,7 +79,7 @@ var _ = Describe("Util", func() {
 			})
 			It("resp should not be empty", func() {
 				Expect(flag).To(BeTrue())
-				Expect(resp).To(Equal("bad972fbf22115a55bb9803eddbeb879"))
+				Expect(resp).To(Equal("cc57a3bd14055f7abafa726652854821175ae72e09a32cf9baad513d2084f493"))
 			})
 		})
 		Context("only global param", func() {
@@ -90,11 +90,11 @@ var _ = Describe("Util", func() {
 			})
 			It("resp should not be empty", func() {
 				Expect(flag).To(BeTrue())
-				Expect(resp).To(Equal("bad972fbf22115a55bb9803eddbeb879"))
+				Expect(resp).To(Equal("cc57a3bd14055f7abafa726652854821175ae72e09a32cf9baad513d2084f493"))
 			})
 		})
 		Context("order shouldn't matter- test case1", func() {
-			flag, resp := utils.CalculateAlertConfigChecksum(context.Background(), v1alpha1.Config{
+			flag1, resp1 := utils.CalculateAlertConfigChecksum(context.Background(), v1alpha1.Config{
 				Params: map[string]string{
 					"bar": "bar",
 				},
@@ -102,13 +102,7 @@ var _ = Describe("Util", func() {
 				"foo": "bar",
 				"abc": "abc",
 			})
-			It("resp should not be empty", func() {
-				Expect(flag).To(BeTrue())
-				Expect(resp).To(Equal("8333896ab3c7ab08fd567bd64255b81c"))
-			})
-		})
-		Context("order shouldn't matter- test case2", func() {
-			flag, resp := utils.CalculateAlertConfigChecksum(context.Background(), v1alpha1.Config{
+			flag2, resp2 := utils.CalculateAlertConfigChecksum(context.Background(), v1alpha1.Config{
 				Params: map[string]string{
 					"bar": "bar",
 					"foo": "bar",
@@ -116,12 +110,41 @@ var _ = Describe("Util", func() {
 			}, map[string]string{
 				"abc": "abc",
 			})
-			It("resp should not be empty", func() {
-				Expect(flag).To(BeTrue())
-				Expect(resp).To(Equal("8333896ab3c7ab08fd567bd64255b81c"))
+			It("hash values should match regardless of order", func() {
+				Expect(flag1).To(BeTrue())
+				Expect(flag2).To(BeTrue())
+				Expect(resp1).To(Equal("29e1aa772b11ab2825b0225c72cd8da8ce70b42cf6ff5f4b92de6ef4dae79f39"))
+				Expect(resp2).To(Equal("29e1aa772b11ab2825b0225c72cd8da8ce70b42cf6ff5f4b92de6ef4dae79f39"))
+				Expect(resp1).To(Equal(resp2))
+			})
+		})
+		Context("order shouldn't matter- test case2", func() {
+			flag1, resp1 := utils.CalculateAlertConfigChecksum(context.Background(), v1alpha1.Config{
+				Params: map[string]string{
+					"bar": "bar",
+				},
+			}, map[string]string{
+				"foo": "bar",
+				"abc": "abc",
+			})
+			flag2, resp2 := utils.CalculateAlertConfigChecksum(context.Background(), v1alpha1.Config{
+				Params: map[string]string{
+					"bar": "bar",
+					"foo": "bar",
+				},
+			}, map[string]string{
+				"abc": "abc",
+			})
+			It("hash values should match regardless of order", func() {
+				Expect(flag1).To(BeTrue())
+				Expect(flag2).To(BeTrue())
+				Expect(resp1).To(Equal("29e1aa772b11ab2825b0225c72cd8da8ce70b42cf6ff5f4b92de6ef4dae79f39"))
+				Expect(resp2).To(Equal("29e1aa772b11ab2825b0225c72cd8da8ce70b42cf6ff5f4b92de6ef4dae79f39"))
+				Expect(resp1).To(Equal(resp2))
 			})
 		})
 	})
+
 	Describe("Test ExportParamsChecksum", func() {
 		Context("empty list", func() {
 			flag, resp := utils.ExportParamsChecksum(context.Background(), []string{})
@@ -141,14 +164,15 @@ var _ = Describe("Util", func() {
 			flag, resp := utils.ExportParamsChecksum(context.Background(), []string{"cluster", "namespace"})
 			It("test case -original", func() {
 				Expect(flag).To(BeTrue())
-				Expect(resp).To(Equal("b00f24f25192cf30021987655d7a9df8"))
+				Expect(resp).To(Equal("b86a15f46b81ab2b1e203f0a1c3ac48e1568582493718dff21fa11d55967b108"))
 			})
 		})
 		Context("A test to compare the difference in checksum with just one extra space", func() {
 			flag, resp := utils.ExportParamsChecksum(context.Background(), []string{"cluster", "namespace "})
 			It("test case -extra space", func() {
 				Expect(flag).To(BeTrue())
-				Expect(resp).To(Not(Equal("b00f24f25192cf30021987655d7a9df8")))
+				Expect(resp).To(Equal("b393526f3634932caf1bf3becebab8c6d15daa0caf6699cb96b2d78a8f41da67"))
+				Expect(resp).ToNot(Equal("b86a15f46b81ab2b1e203f0a1c3ac48e1568582493718dff21fa11d55967b108"))
 			})
 		})
 	})

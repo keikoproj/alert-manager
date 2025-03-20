@@ -2,12 +2,13 @@ package utils
 
 import (
 	"context"
-	"crypto/md5"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"strings"
+
 	"github.com/keikoproj/alert-manager/api/v1alpha1"
 	"github.com/keikoproj/alert-manager/pkg/log"
-	"strings"
 )
 
 // ExportParamsChecksum function calculates checksum if exportParams is not empty
@@ -61,8 +62,10 @@ func CalculateChecksum(ctx context.Context, input string) string {
 func calculateChecksum(ctx context.Context, input string) string {
 	log := log.Logger(ctx, "internal.utils", "util", "calculateChecksum")
 	log.V(4).Info("calculating checksum", "input", input)
-	hash := md5.Sum([]byte(input))
-	return hex.EncodeToString(hash[:])
+	hasher := sha256.New()
+	hasher.Write([]byte(input))
+	hash := hex.EncodeToString(hasher.Sum(nil))
+	return hash
 }
 
 // ContainsString  Helper functions to check from a slice of strings.
