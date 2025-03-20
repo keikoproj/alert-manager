@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/keikoproj/alert-manager/internal/config/common"
 	"github.com/keikoproj/alert-manager/pkg/k8s"
@@ -25,25 +24,13 @@ type Properties struct {
 
 func init() {
 	logger := log.Logger(context.Background(), "config", "properties", "init")
-	// bypass Kubernetes client initialization when running tests
-	if strings.ToLower(os.Getenv("TEST_MODE")) == "true" {
-		logger.Info("TEST_MODE=true, skipping Kubernetes client initialization")
-		// Set default test properties
-		if err := LoadProperties("test", nil); err != nil {
-			logger.Error(err, "failed to load test properties")
-			return
-		}
-		logger.Info("Loaded properties in init func for tests")
-		return
-	}
 
-	// Check if KUBECONFIG is set and bypass client creation if running tests
-	if len(os.Getenv("KUBECONFIG")) == 0 && strings.ToLower(os.Getenv("LOCAL")) != "true" {
-		logger.Info("KUBECONFIG not set, skipping Kubernetes client initialization")
-		// Set default test properties
-		if err := LoadProperties("test", nil); err != nil {
-			logger.Error(err, "failed to load test properties")
-			return
+	// Check for LOCAL environment
+	if os.Getenv("LOCAL") != "" {
+		err := LoadProperties("LOCAL")
+		if err != nil {
+			logger.Error(err, "failed to load local properties")
+			panic(err)
 		}
 		logger.Info("Loaded properties in init func for tests")
 		return

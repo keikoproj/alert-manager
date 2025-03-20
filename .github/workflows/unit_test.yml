@@ -39,17 +39,9 @@ jobs:
           go-version: ${{ matrix.go-version }}
           cache: true
           
-      - name: Install required tools
-        run: |
-          go install github.com/golang/mock/mockgen@v1.6.0
-          
-      - name: Generate mocks
-        run: |
-          make mock
-          
       - name: Run unit tests
         run: |
-          make unit-test
+          make test
           
       - name: Upload coverage
         uses: codecov/codecov-action@v3

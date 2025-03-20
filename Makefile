@@ -15,7 +15,12 @@ KUSTOMIZE_VERSION ?= v3.8.7
 
 KUBECONFIG                  ?= $(HOME)/.kube/config
 LOCAL                       ?= true
-TEST_MODE                   ?= true
+RESTRICTED_POLICY_RESOURCES ?= policy-resource
+RESTRICTED_S3_RESOURCES     ?= s3-resource
+AWS_ACCOUNT_ID              ?= 123456789012
+AWS_REGION                  ?= us-west-2
+CLUSTER_NAME                ?= k8s_test_keiko
+CLUSTER_OIDC_ISSUER_URL     ?= https://google.com/OIDC
 
 LOCALBIN ?= $(shell pwd)/bin
 
@@ -70,23 +75,26 @@ mock: ## Generate mock implementations for interfaces
 	@echo "Installing mockgen..."
 	go install github.com/golang/mock/mockgen@v1.6.0
 	@echo "Generating mocks..."
-	@cd internal/controllers && \
-	PATH=$$PATH:$(GOBIN) mockgen -destination=mocks/mock_wavefrontiface.go -package=mocks github.com/keikoproj/alert-manager/pkg/wavefront Interface
+	@for pkg in $(shell go list ./...) ; do \
+		go generate ./... ;\
+	done
 	@echo "Mock generation completed"
 
-ENVTEST_ASSETS_DIR=$(shell pwd)/bin/k8s/$(ENVTEST_K8S_VERSION)-$(OSNAME)-$(shell go env GOARCH)
+ENVTEST_ASSETS_DIR=$(LOCALBIN)
 
-# Run unit tests on all code with proper mocks but without requiring the Kubernetes API
-unit-test: mock ## Run unit tests on all code with proper mocks
-	@echo "Running unit tests on all code..."
-	TEST_MODE=true LOCAL=true PATH=$$PATH:$(GOBIN) go test ./... -v -coverprofile cover.out
-
-test: mock fmt vet envtest ## Run tests.
+test: mock manifests generate fmt vet envtest ## Run tests.
 	@echo "Running tests with envtest..."
+	KUBECONFIG=$(KUBECONFIG) \
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
-	TEST_MODE=true \
 	LOCAL=$(LOCAL) \
-	PATH=$$PATH:$(GOBIN) go test ./... -v -coverprofile cover.out
+	RESTRICTED_POLICY_RESOURCES=$(RESTRICTED_POLICY_RESOURCES) \
+	RESTRICTED_S3_RESOURCES=$(RESTRICTED_S3_RESOURCES) \
+	AWS_ACCOUNT_ID=$(AWS_ACCOUNT_ID) \
+	AWS_REGION=$(AWS_REGION) \
+	CLUSTER_NAME=$(CLUSTER_NAME) \
+	CLUSTER_OIDC_ISSUER_URL="$(CLUSTER_OIDC_ISSUER_URL)" \
+	DEFAULT_TRUST_POLICY=$(DEFAULT_TRUST_POLICY) \
+	go test ./... -coverprofile cover.out
 
 ##@ Build
 
