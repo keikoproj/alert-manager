@@ -8,11 +8,6 @@ on:
   # For direct pushes to master only
   push:
     branches: [ master ]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '.github/**'
-      - '!.github/workflows/unit_test.yml'
 
 # Prevent duplicate workflow runs
 concurrency:
