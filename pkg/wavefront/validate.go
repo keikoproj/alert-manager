@@ -29,17 +29,15 @@ func validateAlertConditions(ctx context.Context, input *wavefront.Alert) error 
 				return err
 			}
 		} else {
-			msg := fmt.Sprintf("validation failed: conditions must not be empty")
-			err := errors.New(msg)
-			log.Error(err, msg)
+			err := errors.New("validation failed: conditions must not be empty")
+			log.Error(err, "validation failed: conditions must not be empty")
 			return err
 		}
 
 	} else if input.AlertType == wavefront.AlertTypeClassic {
 		if input.Condition == "" {
-			msg := fmt.Sprintf("validation failed: condition must not be empty")
-			err := errors.New(msg)
-			log.Error(err, msg)
+			err := errors.New("validation failed: condition must not be empty")
+			log.Error(err, "validation failed: condition must not be empty")
 			return err
 		}
 
@@ -49,15 +47,13 @@ func validateAlertConditions(ctx context.Context, input *wavefront.Alert) error 
 				return err
 			}
 		} else {
-			msg := fmt.Sprintf("validation failed: severity must not be empty")
-			err := errors.New(msg)
-			log.Error(err, msg)
+			err := errors.New("validation failed: severity must not be empty")
+			log.Error(err, "validation failed: severity must not be empty")
 			return err
 		}
 	} else {
-		msg := fmt.Sprintf("validation failed: invalid alert type: %s", input.AlertType)
-		err := errors.New(msg)
-		log.Error(err, msg)
+		err := fmt.Errorf("validation failed: invalid alert type: %s", input.AlertType)
+		log.Error(err, "validation failed: invalid alert type")
 		return err
 	}
 
@@ -85,8 +81,7 @@ func validateSeverity(ctx context.Context, key string) error {
 		}
 	}
 	if !ok {
-		msg := fmt.Sprintf("invalid severity: %s", key)
-		err := errors.New(msg)
+		err := fmt.Errorf("invalid severity: %s", key)
 		log.Error(err, "invalid severity found")
 		return err
 	}
@@ -99,7 +94,7 @@ func ValidateTemplateParams(ctx context.Context, exportParams []string, configVa
 	log.V(1).Info("validating export params with config params")
 	for _, param := range exportParams {
 		if _, ok := configValues[param]; !ok {
-			return errors.New(fmt.Sprintf("Required exported param %s is not supplied. ", param))
+			return fmt.Errorf("Required exported param %s is not supplied. ", param)
 		}
 	}
 	return nil

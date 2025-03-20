@@ -23,7 +23,11 @@ func NewK8sSelfClientDoOrDie() *Client {
 		// Do i need to panic here?
 		//How do i test this from local?
 		//Lets get it from local config file
-		config, err = clientcmd.BuildConfigFromFlags("", os.Getenv("KUBECONFIG"))
+		var configErr error
+		config, configErr = clientcmd.BuildConfigFromFlags("", os.Getenv("KUBECONFIG"))
+		if configErr != nil {
+			panic(configErr)
+		}
 	}
 	cl, err := kubernetes.NewForConfig(config)
 	if err != nil {

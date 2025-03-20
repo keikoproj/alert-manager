@@ -139,8 +139,9 @@ func (r *Client) ConvertAlertCR(ctx context.Context, wfAlert *alertmanagerv1alph
 			ErrorDescription: errMsg,
 			State:            alertmanagerv1alpha1.MalformedSpec,
 		}
-		// There is no use of requeue in this case
-		r.UpdateStatus(ctx, wfAlert, alertmanagerv1alpha1.MalformedSpec)
+		if _, updateErr := r.UpdateStatus(ctx, wfAlert, alertmanagerv1alpha1.MalformedSpec); updateErr != nil {
+			log.Error(updateErr, "Failed to update status")
+		}
 	}
 }
 
