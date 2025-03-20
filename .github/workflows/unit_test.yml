@@ -27,7 +27,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        go-version: [1.21.x]
+        go-version: [1.24.x]
         arch: [amd64, arm64]
     steps:
       - name: Check out code
