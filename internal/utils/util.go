@@ -2,7 +2,7 @@ package utils
 
 import (
 	"context"
-	"crypto/md5"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"github.com/keikoproj/alert-manager/api/v1alpha1"
@@ -61,8 +61,9 @@ func CalculateChecksum(ctx context.Context, input string) string {
 func calculateChecksum(ctx context.Context, input string) string {
 	log := log.Logger(ctx, "internal.utils", "util", "calculateChecksum")
 	log.V(4).Info("calculating checksum", "input", input)
-	hash := md5.Sum([]byte(input))
-	return hex.EncodeToString(hash[:])
+	hasher := sha256.New()
+	hasher.Write([]byte(input))
+	return hex.EncodeToString(hasher.Sum(nil))
 }
 
 // ContainsString  Helper functions to check from a slice of strings.
