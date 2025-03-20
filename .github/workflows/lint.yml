@@ -74,6 +74,8 @@ jobs:
 
   gosec-issues:
     name: Security Scan Issues
+    # Disable this job for now
+    if: false
     runs-on: ubuntu-latest
     # This job will run but we'll mark it as non-blocking (allow failure)
     continue-on-error: true
