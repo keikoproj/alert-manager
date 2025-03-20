@@ -138,7 +138,7 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		// Check for exportedParams checksum
 		exist, reqChecksum := utils.ExportParamsChecksum(ctx, wfAlert.Spec.ExportedParams)
 		// if status doesn't have checksum- it means its very first request
-		if exist && &wfAlert.Status.ExportParamsChecksum != nil {
+		if exist {
 			log.Info("checksum difference", "reqChecksum", reqChecksum, "checksum", wfAlert.Status.ExportParamsChecksum)
 			if reqChecksum != wfAlert.Status.ExportParamsChecksum {
 				proceed = false
