@@ -5,9 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"strings"
+
 	"github.com/keikoproj/alert-manager/api/v1alpha1"
 	"github.com/keikoproj/alert-manager/pkg/log"
-	"strings"
 )
 
 // ExportParamsChecksum function calculates checksum if exportParams is not empty
@@ -63,7 +64,8 @@ func calculateChecksum(ctx context.Context, input string) string {
 	log.V(4).Info("calculating checksum", "input", input)
 	hasher := sha256.New()
 	hasher.Write([]byte(input))
-	return hex.EncodeToString(hasher.Sum(nil))
+	hash := hex.EncodeToString(hasher.Sum(nil))
+	return hash
 }
 
 // ContainsString  Helper functions to check from a slice of strings.
