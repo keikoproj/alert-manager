@@ -2,6 +2,7 @@ package utils_test
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/keikoproj/alert-manager/api/v1alpha1"
 	"github.com/keikoproj/alert-manager/internal/utils"
@@ -199,12 +200,12 @@ var _ = Describe("Util", func() {
 		})
 		Context("empty slice with remove usecase", func() {
 			It("should just return the empty slice", func() {
-				Expect(utils.RemoveString([]string{}, "iamrole.finalizers.iammanager.keikoproj.io")).To(Equal(emptySlice))
+				Expect(utils.RemoveString(emptySlice, "iamrole.finalizers.iammanager.keikoproj.io")).To(Equal(emptySlice))
 			})
 		})
 		Context("empty slice with remove usecase", func() {
 			It("should just return the empty slice", func() {
-				Expect(utils.RemoveString([]string{}, "iamrole.finalizers.iammanager.keikoproj.io")).To(Equal(emptySlice))
+				Expect(utils.RemoveString(emptySlice, "iamrole.finalizers.iammanager.keikoproj.io")).To(Equal(emptySlice))
 			})
 		})
 		Context("empty the slice by removing one string", func() {
@@ -220,4 +221,81 @@ var _ = Describe("Util", func() {
 		})
 	})
 
+	Describe("CalculateChecksum() test cases", func() {
+		Context("with simple string input", func() {
+			It("should return consistent hash value", func() {
+				checksum := utils.CalculateChecksum(context.Background(), "test-input")
+				fmt.Printf("DEBUG: input: %q, checksum: %q\n", "test-input", checksum)
+				Expect(checksum).To(Equal("ae1608896372720b6ebb58261e0c0092c608324b0804bc99267c1753990faaa8"))
+
+				// Test idempotence - should return same hash for same input
+				checksum2 := utils.CalculateChecksum(context.Background(), "test-input")
+				Expect(checksum).To(Equal(checksum2))
+			})
+		})
+
+		Context("with empty string input", func() {
+			It("should return hash of empty string", func() {
+				checksum := utils.CalculateChecksum(context.Background(), "")
+				Expect(checksum).To(Equal("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
+			})
+		})
+
+		Context("with different inputs", func() {
+			It("should return different hashes", func() {
+				checksum1 := utils.CalculateChecksum(context.Background(), "input1")
+				checksum2 := utils.CalculateChecksum(context.Background(), "input2")
+				Expect(checksum1).NotTo(Equal(checksum2))
+			})
+		})
+	})
+
+	Describe("TrimSpaces() test cases", func() {
+		Context("with string input containing spaces", func() {
+			It("should trim leading and trailing spaces", func() {
+				result := utils.TrimSpaces("  test string with spaces  ")
+				Expect(result).To(Equal("test string with spaces"))
+			})
+		})
+
+		Context("with non-string input", func() {
+			It("should return empty string", func() {
+				result := utils.TrimSpaces(123)
+				Expect(result).To(Equal(""))
+			})
+		})
+
+		Context("with empty string", func() {
+			It("should return empty string", func() {
+				result := utils.TrimSpaces("")
+				Expect(result).To(Equal(""))
+			})
+		})
+	})
+
+	Describe("TrimSpacesMap() test cases", func() {
+		Context("with map containing strings with spaces", func() {
+			It("should trim all values", func() {
+				input := map[string]string{
+					"key1": "  value1  ",
+					"key2": "value2",
+					"key3": " value3 with spaces ",
+				}
+
+				result := utils.TrimSpacesMap(input)
+
+				Expect(result["key1"]).To(Equal("value1"))
+				Expect(result["key2"]).To(Equal("value2"))
+				Expect(result["key3"]).To(Equal("value3 with spaces"))
+			})
+		})
+
+		Context("with empty map", func() {
+			It("should return empty map", func() {
+				input := map[string]string{}
+				result := utils.TrimSpacesMap(input)
+				Expect(result).To(Equal(map[string]string{}))
+			})
+		})
+	})
 })
