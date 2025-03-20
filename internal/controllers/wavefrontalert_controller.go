@@ -257,8 +257,10 @@ func (r *WavefrontAlertReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// this is for standalone alerts not alertsconfig scenario
 	currStatus := wfAlert.Status.AlertsStatus
 	for _, a := range wfAlert.Status.AlertsStatus {
+		// Create a local copy of ID to avoid memory aliasing in loop
+		id := a.ID
 		alert := wf.Alert{
-			ID: &a.ID,
+			ID: &id,
 		}
 		r.convertAlertCR(ctx, &wfAlert, &alert)
 		state := alertmanagerv1alpha1.Ready
