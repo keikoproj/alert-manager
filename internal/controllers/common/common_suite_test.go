@@ -3,7 +3,7 @@ package common_test
 import (
 	"context"
 	"fmt"
-	"os"
+
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -29,6 +29,7 @@ import (
 
 var cfg *rest.Config
 var k8sClient client.Client
+var k8sCl k8s.Client
 var testEnv *envtest.Environment
 var mockWavefront *mock_wavefront.MockInterface
 var mgrCtx context.Context
@@ -43,15 +44,6 @@ func TestCommon(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-
-	// Enable test mode to avoid trying to connect to a real k8s cluster
-	os.Setenv("TEST_MODE", "true")
-
-	// Set KUBEBUILDER_ASSETS to the proper location
-	assetsPath := filepath.Join("../../../", "bin", "k8s",
-		fmt.Sprintf("%s-%s-%s", "1.28.0", runtime.GOOS, runtime.GOARCH),
-		"k8s", fmt.Sprintf("%s-%s-%s", "1.28.0", runtime.GOOS, runtime.GOARCH))
-	os.Setenv("KUBEBUILDER_ASSETS", assetsPath)
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
@@ -92,36 +84,42 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	//Set up the recorder
-	recorder := k8sManager.GetEventRecorderFor("common-controller")
+	//For wavefront mock
+	mockCtrl := gomock.NewController(GinkgoT())
+	defer mockCtrl.Finish()
+	mockWavefront = mock_wavefront.NewMockInterface(mockCtrl)
 
-	mockController := gomock.NewController(GinkgoT())
-	mockWavefront = mock_wavefront.NewMockInterface(mockController)
+	// Setup default mock behaviors for all Wavefront API calls
+	mockWavefront.EXPECT().CreateAlert(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, alert interface{}) error {
+			// Just return success - we're not testing the actual API call
+			return nil
+		}).AnyTimes()
+
+	mockWavefront.EXPECT().ReadAlert(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	mockWavefront.EXPECT().UpdateAlert(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	mockWavefront.EXPECT().DeleteAlert(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 	// Create k8s client
-	k8sClientObj := &k8s.Client{
+	k8sCl = k8s.Client{
 		Cl: cl,
 	}
-
-	commonClient := &common.Client{
-		Client:   k8sManager.GetClient(),
-		Recorder: k8sClientObj.SetUpEventHandler(context.Background()),
+	commonClient := common.Client{
+		Client:   k8sClient,
+		Recorder: k8sCl.SetUpEventHandler(context.Background()),
 	}
 
-	mgrCtx, cancelFunc = context.WithCancel(ctrl.SetupSignalHandler())
-
-	// Create a basic CR to test
 	err = (&controllers.WavefrontAlertReconciler{
 		Client:          k8sManager.GetClient(),
-		Scheme:          scheme.Scheme,
-		CommonClient:    commonClient,
+		Scheme:          k8sManager.GetScheme(),
+		CommonClient:    &commonClient,
 		WavefrontClient: mockWavefront,
-		Recorder:        recorder,
+		Recorder:        k8sCl.SetUpEventHandler(context.Background()),
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {
-		defer GinkgoRecover()
+		mgrCtx, cancelFunc = context.WithCancel(context.Background())
 		err = k8sManager.Start(mgrCtx)
 		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
 	}()
