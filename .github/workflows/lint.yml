@@ -36,10 +36,6 @@ jobs:
           cache: true
 
       # Generate mocks first to avoid linting errors
-      - name: Install mockgen
-        run: |
-          go install github.com/golang/mock/mockgen@v1.6.0
-          
       - name: Generate mocks
         run: |
           make mock
@@ -62,20 +58,8 @@ jobs:
           version: latest
           args: --timeout=5m --issues-exit-code=0
           
-      - name: Document lint issues for future PR
-        run: |
-          echo "Lint issues to be addressed in a future PR:"
-          echo " - Fix unhandled error returns (errcheck)"
-          echo " - Remove unused constants"
-          echo " - Simplify code patterns (gosimple)"
-          echo " - Address ineffectual assignments"
-          echo " - Fix staticcheck warnings"
-          echo "These will be addressed in a dedicated code quality improvement PR."
-
   gosec-issues:
     name: Security Scan Issues
-    # Disable this job for now
-    if: false
     runs-on: ubuntu-latest
     # This job will run but we'll mark it as non-blocking (allow failure)
     continue-on-error: true
@@ -86,15 +70,7 @@ jobs:
       - name: List security issues
         uses: securego/gosec@master
         with:
-          args: -exclude-generated -exclude=G307,G401,G501,G104 ./...
-          
-      # This step documents all issues being addressed in a future PR
-      - name: Document known issues
-        run: |
-          echo "Known security issues to be addressed in future PRs:"
-          echo " - G401/G501: Replace MD5 with more secure hash (SHA-256)"
-          echo " - G104: Add proper error handling to unhandled errors"
-          echo " - G601: Fix memory aliasing in loops"
+          args: -exclude-generated ./...
 
   license-check:
     name: License Compliance

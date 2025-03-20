@@ -29,10 +29,6 @@ jobs:
         run: |
           make envtest
           
-      - name: Generate mocks
-        run: |
-          make mock
-          
       - name: Run comprehensive tests
         run: |
           make test
