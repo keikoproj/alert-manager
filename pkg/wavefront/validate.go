@@ -13,9 +13,38 @@ import (
 func ValidateAlertInput(ctx context.Context, input *wavefront.Alert) error {
 	log := log.Logger(ctx, "pkg.wavefront", "validateAlertInput")
 	log.V(1).Info("validating input request")
+
+	// Validate common required fields first
+	if input.Name == "" {
+		err := errors.New("validation failed: alertName must not be empty")
+		log.Error(err, "validation failed: alertName must not be empty")
+		return err
+	}
+
+	if input.DisplayExpression == "" {
+		err := errors.New("validation failed: displayExpression must not be empty")
+		log.Error(err, "validation failed: displayExpression must not be empty")
+		return err
+	}
+
+	// Validate Minutes and ResolveAfterMinutes
+	if input.Minutes <= 0 {
+		err := errors.New("validation failed: minutes must be greater than 0")
+		log.Error(err, "validation failed: minutes must be greater than 0")
+		return err
+	}
+
+	if input.ResolveAfterMinutes <= 0 {
+		err := errors.New("validation failed: resolveAfterMinutes must be greater than 0")
+		log.Error(err, "validation failed: resolveAfterMinutes must be greater than 0")
+		return err
+	}
+
+	// Validate alert type specific conditions
 	if err := validateAlertConditions(ctx, input); err != nil {
 		return err
 	}
+
 	return nil
 }
 

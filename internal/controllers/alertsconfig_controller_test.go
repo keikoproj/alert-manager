@@ -2,6 +2,7 @@ package controllers_test
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	wf "github.com/WavefrontHQ/go-wavefront-management-api"
@@ -429,10 +430,10 @@ var _ = Describe("AlertsConfigController", Label("controller", "alertsconfig"), 
 					Severity:          "warn",
 					Tags:              []string{"test", "params"},
 					// Define specific exported parameters that must be provided
-					ExportedParams: []string{"threshold", "environment"},
+					ExportedParams: []string{"threshold", "environment", "region"},
 					ExportedParamsDefaultValues: map[string]string{
 						"threshold": "80",
-						// Note: intentionally not providing default for "environment"
+						// Note: intentionally not providing defaults for "environment" and "region"
 					},
 				},
 			}
@@ -461,12 +462,13 @@ var _ = Describe("AlertsConfigController", Label("controller", "alertsconfig"), 
 				Spec: alertmanagerv1alpha1.AlertsConfigSpec{
 					GlobalParams: map[string]string{
 						"env": "test",
+						// Note: "environment" is missing but required by the alert
 					},
 					Alerts: map[string]alertmanagerv1alpha1.Config{
 						"params-test-alert": {
 							Params: map[string]string{
 								"threshold": "90",
-								// Missing required "environment" parameter
+								// Missing both "environment" and "region" parameters
 							},
 						},
 					},
@@ -489,18 +491,38 @@ var _ = Describe("AlertsConfigController", Label("controller", "alertsconfig"), 
 			// Allow time for controller to process and update status
 			time.Sleep(100 * time.Millisecond)
 
-			By("Checking the controller behavior with invalid parameters")
-			// The controller should either use default values, show errors,
-			// or otherwise handle the missing parameter gracefully
+			By("Verifying the controller correctly identifies missing parameters")
 			Eventually(func() bool {
 				if err := k8sClient.Get(ctx, configLookupKey, createdConfig); err != nil {
 					return false
 				}
 
-				// We're checking that the controller is doing *something* with the invalid config
-				// This could be recording an error, using defaults, etc.
-				return len(createdConfig.Status.AlertsStatus) > 0
-			}, timeout, interval).Should(BeTrue())
+				// Check for error state in the alert status
+				for alertName, status := range createdConfig.Status.AlertsStatus {
+					if alertName == "params-test-alert" {
+						return status.State == alertmanagerv1alpha1.Error &&
+							status.ErrorDescription != ""
+					}
+				}
+				return false
+			}, timeout, interval).Should(BeTrue(), "AlertsConfig should show error state for missing parameters")
+
+			// Verify that controller reports which parameters are missing
+			By("Verifying the error message contains information about missing parameters")
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, configLookupKey, createdConfig); err != nil {
+					return false
+				}
+
+				for alertName, status := range createdConfig.Status.AlertsStatus {
+					if alertName == "params-test-alert" {
+						// Error should mention at least one of the missing parameters
+						return strings.Contains(status.ErrorDescription, "environment") ||
+							strings.Contains(status.ErrorDescription, "region")
+					}
+				}
+				return false
+			}, timeout, interval).Should(BeTrue(), "Error description should mention missing parameters")
 
 			// Clean up resources
 			DeferCleanup(func() {

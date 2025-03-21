@@ -13,7 +13,10 @@ var _ = Describe("Validate", func() {
 	Describe(" Test ValidateAlertInput", func() {
 		Context("CLASSIC type test cases ", func() {
 			input := &wavefront.Alert{
-				Name: "test-alert",
+				Name:                "test-alert",
+				DisplayExpression:   "ts(status.health)",
+				Minutes:             5,
+				ResolveAfterMinutes: 5,
 			}
 			It("AlertType is empty", func() {
 				err := wf.ValidateAlertInput(context.Background(), input)
@@ -49,7 +52,10 @@ var _ = Describe("Validate", func() {
 
 		Context("THRESHOLD type test cases ", func() {
 			input := &wavefront.Alert{
-				Name: "test-alert2",
+				Name:                "test-alert2",
+				DisplayExpression:   "ts(status.health)",
+				Minutes:             5,
+				ResolveAfterMinutes: 5,
 			}
 			It("AlertType is empty", func() {
 				err := wf.ValidateAlertInput(context.Background(), input)
@@ -103,5 +109,4 @@ var _ = Describe("Validate", func() {
 			})
 		})
 	})
-
 })
