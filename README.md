@@ -152,7 +152,7 @@ Apache License 2.0, see [LICENSE](LICENSE).
 [ReleaseImg]: https://img.shields.io/github/release/keikoproj/alert-manager.svg
 [ReleaseUrl]: https://github.com/keikoproj/alert-manager/releases/latest
 
-[BuildStatusImg]: https://github.com/keikoproj/alert-manager/actions/workflows/unit_test.yaml/badge.svg
+[BuildStatusImg]: https://github.com/keikoproj/alert-manager/actions/workflows/unit_test.yml/badge.svg
 [BuildMasterUrl]: https://github.com/keikoproj/alert-manager/actions/workflows/unit_test.yml
 
 [CodecovImg]: https://codecov.io/gh/keikoproj/alert-manager/branch/master/graph/badge.svg
