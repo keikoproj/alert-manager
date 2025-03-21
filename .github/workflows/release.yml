@@ -44,7 +44,7 @@ jobs:
           fetch-depth: 0  # Fetch all history for proper versioning
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
         with:
           install: true
 
