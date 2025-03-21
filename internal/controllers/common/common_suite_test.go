@@ -3,10 +3,10 @@ package common_test
 import (
 	"context"
 	"fmt"
+	"testing"
 
 	"path/filepath"
 	"runtime"
-	"testing"
 
 	"github.com/golang/mock/gomock"
 	alertmanagerv1alpha1 "github.com/keikoproj/alert-manager/api/v1alpha1"

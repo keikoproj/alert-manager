@@ -47,6 +47,7 @@ import (
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
+// Global test variables shared across test cases
 var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
@@ -56,21 +57,25 @@ var mgrCtx context.Context
 // https://github.com/kubernetes-sigs/controller-runtime/issues/1571
 var cancelFunc context.CancelFunc
 
+// TestAPIs is the entry point for Ginkgo tests
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"Controller Suite",
-		[]Reporter{})
+	RunSpecs(t, "Controller Suite")
 }
 
+// BeforeSuite sets up the test environment with a local Kubernetes API server
+// and registers the controller that will be tested.
 var _ = BeforeSuite(func() {
+	// Configure logging for the test environment
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
+		// Path to the CRD files to be loaded in the test API server
 		CRDDirectoryPaths:     []string{filepath.Join("../../", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
+		// Path to the Kubernetes API server binaries
 		BinaryAssetsDirectory: filepath.Join("../../", "bin", "k8s",
 			fmt.Sprintf("%s-%s-%s", "1.28.0", runtime.GOOS, runtime.GOARCH)),
 	}
@@ -87,23 +92,26 @@ var _ = BeforeSuite(func() {
 
 	Expect(cfg).NotTo(BeNil())
 
+	// Register the AlertManager custom resource definitions with the test API server
 	err = alertmanagerv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
 
+	// Create a Kubernetes client for interacting with the test API server
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
+	// Set up a controller manager for testing controllers
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:  scheme.Scheme,
 		Metrics: metricsserver.Options{BindAddress: "0"},
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	//For wavefront mock
-	mockCtrl := gomock.NewController(GinkgoT())
+	// Set up mock for Wavefront API client
+	mockCtrl := gomock.NewController(GinkgoTB())
 	defer mockCtrl.Finish()
 
 	mockWavefront = mock_wavefront.NewMockInterface(mockCtrl)
@@ -112,6 +120,7 @@ var _ = BeforeSuite(func() {
 	clientset, err := kubernetes.NewForConfig(cfg)
 	Expect(err).ToNot(HaveOccurred())
 
+	// Initialize the event recorder for controllers
 	k8sCl := k8s.Client{
 		Cl: clientset,
 	}
@@ -120,7 +129,7 @@ var _ = BeforeSuite(func() {
 		Recorder: k8sCl.SetUpEventHandler(context.Background()),
 	}
 
-	// Set up AlertsConfigReconciler
+	// Set up AlertsConfigReconciler with mocked dependencies
 	err = (&controllers.AlertsConfigReconciler{
 		Client:          k8sManager.GetClient(),
 		Log:             ctrl.Log.WithName("test-alertsconfig-controller"),
@@ -131,7 +140,7 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
-	// Set up WavefrontAlertReconciler
+	// Set up WavefrontAlertReconciler with mocked dependencies
 	err = (&controllers.WavefrontAlertReconciler{
 		Client:          k8sManager.GetClient(),
 		Log:             ctrl.Log.WithName("test-wavefrontalert-controller"),
@@ -142,6 +151,7 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
+	// Start the controller manager in a separate goroutine
 	go func() {
 		mgrCtx, cancelFunc = context.WithCancel(context.Background())
 		err = k8sManager.Start(mgrCtx)
@@ -149,6 +159,7 @@ var _ = BeforeSuite(func() {
 	}()
 })
 
+// AfterSuite tears down the test environment and releases resources
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	if testEnv != nil && cfg != nil {
