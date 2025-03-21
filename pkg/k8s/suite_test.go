@@ -44,13 +44,10 @@ var cl Client
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
-
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"K8s Suite",
-		[]Reporter{})
+	RunSpecs(t, "K8s Suite")
 }
 
-var _ = BeforeSuite(func(done Done) {
+var _ = BeforeSuite(func() {
 	//logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
 
 	By("bootstrapping test environment")
@@ -82,7 +79,6 @@ var _ = BeforeSuite(func(done Done) {
 		runtimeClient: k8sClient,
 	}
 	Expect(cl).ToNot(BeNil())
-	close(done)
 })
 
 var _ = AfterSuite(func() {
