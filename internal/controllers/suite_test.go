@@ -120,15 +120,26 @@ var _ = BeforeSuite(func() {
 		Recorder: k8sCl.SetUpEventHandler(context.Background()),
 	}
 
-	err = (&controllers.WavefrontAlertReconciler{
+	// Set up AlertsConfigReconciler
+	err = (&controllers.AlertsConfigReconciler{
 		Client:          k8sManager.GetClient(),
-		Log:             ctrl.Log.WithName("test-controller"),
+		Log:             ctrl.Log.WithName("test-alertsconfig-controller"),
 		Scheme:          k8sManager.GetScheme(),
 		CommonClient:    &commonClient,
 		WavefrontClient: mockWavefront,
 		Recorder:        k8sCl.SetUpEventHandler(context.Background()),
 	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
 
+	// Set up WavefrontAlertReconciler
+	err = (&controllers.WavefrontAlertReconciler{
+		Client:          k8sManager.GetClient(),
+		Log:             ctrl.Log.WithName("test-wavefrontalert-controller"),
+		Scheme:          k8sManager.GetScheme(),
+		CommonClient:    &commonClient,
+		WavefrontClient: mockWavefront,
+		Recorder:        k8sCl.SetUpEventHandler(context.Background()),
+	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {
