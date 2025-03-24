@@ -56,7 +56,7 @@ jobs:
       # Only attempt to push if we have Docker credentials
       - name: Login to DockerHub
         if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           # Secrets should be configured in the repository settings
           username: ${{ secrets.DOCKERHUB_USERNAME }}
