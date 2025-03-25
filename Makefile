@@ -7,10 +7,10 @@ CRD_OPTIONS ?= "crd"
 OSNAME           ?= $(shell uname -s | tr A-Z a-z)
 KUBEBUILDER_VER  ?= 3.0.0
 KUBEBUILDER_ARCH ?= amd64
-ENVTEST_K8S_VERSION = 1.28.0
+ENVTEST_K8S_VERSION = 1.32.0
 
 # Tool Versions
-CONTROLLER_TOOLS_VERSION ?= v0.14.0
+CONTROLLER_TOOLS_VERSION ?= v0.17.2
 KUSTOMIZE_VERSION ?= v3.8.7
 
 KUBECONFIG                  ?= $(HOME)/.kube/config
