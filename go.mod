@@ -3,7 +3,7 @@ module github.com/keikoproj/alert-manager
 go 1.24
 
 require (
-	github.com/WavefrontHQ/go-wavefront-management-api v1.14.2
+	github.com/WavefrontHQ/go-wavefront-management-api v1.16.0
 	github.com/emirpasic/gods v1.18.1
 	github.com/go-logr/logr v1.4.2
 	github.com/golang/mock v1.6.0
