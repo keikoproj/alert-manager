@@ -1,5 +1,5 @@
-github.com/WavefrontHQ/go-wavefront-management-api v1.14.2 h1:XYsdmQvie/faEn4YlXPSC9qc4TVhPRYRu/IuojqODL8=
-github.com/WavefrontHQ/go-wavefront-management-api v1.14.2/go.mod h1:lvOQYngtif/hxow8fjOM7ox/nSyYGyBjNwDBXxcTjvk=
+github.com/WavefrontHQ/go-wavefront-management-api v1.16.0 h1:TnwD32ulsMVpzJWr4+Op9G3H3YnCdXK87yaMvrrQ7pA=
+github.com/WavefrontHQ/go-wavefront-management-api v1.16.0/go.mod h1:lvOQYngtif/hxow8fjOM7ox/nSyYGyBjNwDBXxcTjvk=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
