@@ -1,12 +1,17 @@
 package k8s
 
 import (
+	"context"
 	"fmt"
+	"os"
+
 	alertmanagerv1alpha1 "github.com/keikoproj/alert-manager/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -17,6 +22,36 @@ type Client struct {
 
 // NewK8sSelfClientDoOrDie gets the new k8s go client
 func NewK8sSelfClientDoOrDie() *Client {
+	// For testing - return a mock client if LOCAL env is set
+	if os.Getenv("LOCAL") != "true" && os.Getenv("TEST") == "true" {
+		// Create a fake kubernetes client for testing
+		mockClient := fake.NewSimpleClientset()
+
+		// Pre-create the configmap that will be requested by the config package
+		configMap := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "alert-manager-configmap",
+				Namespace: "alert-manager-system",
+			},
+			Data: map[string]string{
+				"wavefront.api.token.secret": "wavefront-api-token",
+				"wavefront.api.url":          "https://wavefront.example.com",
+			},
+		}
+
+		// Add the configmap to the fake client
+		_, err := mockClient.CoreV1().ConfigMaps("alert-manager-system").Create(context.Background(), configMap, metav1.CreateOptions{})
+		if err != nil {
+			// In testing, just print the error but don't panic
+			fmt.Printf("Error creating mock configmap: %v\n", err)
+		}
+
+		return &Client{
+			Cl:            mockClient,
+			runtimeClient: nil,
+		}
+	}
+
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		fmt.Println("THIS IS LOCAL")

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 
 	"github.com/keikoproj/alert-manager/internal/config/common"
 	"github.com/keikoproj/alert-manager/pkg/k8s"
@@ -24,17 +23,6 @@ type Properties struct {
 
 func init() {
 	logger := log.Logger(context.Background(), "config", "properties", "init")
-
-	// Check for LOCAL environment
-	if os.Getenv("LOCAL") != "" {
-		err := LoadProperties("LOCAL")
-		if err != nil {
-			logger.Error(err, "failed to load local properties")
-			panic(err)
-		}
-		logger.Info("Loaded properties in init func for tests")
-		return
-	}
 
 	res := k8s.NewK8sSelfClientDoOrDie().GetConfigMap(context.Background(), common.AlertManagerNamespaceName, common.AlertManagerConfigMapName)
 
