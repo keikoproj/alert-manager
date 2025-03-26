@@ -13,7 +13,6 @@ ENVTEST_K8S_VERSION = 1.32.0
 CONTROLLER_TOOLS_VERSION ?= v0.17.2
 KUSTOMIZE_VERSION ?= v3.8.7
 
-LOCAL   ?= false # Set to true for testing with local cluster (e.g., kind)
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 
 LOCALBIN ?= $(shell pwd)/bin
@@ -77,7 +76,6 @@ ENVTEST_ASSETS_DIR=$(LOCALBIN)
 test: mock manifests generate fmt vet envtest ## Run tests.
 	@echo "Running tests with envtest..."
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
-	LOCAL=$(LOCAL) \
 	TEST=true \
 	go test ./... -coverprofile cover.out
 

@@ -22,8 +22,8 @@ type Client struct {
 
 // NewK8sSelfClientDoOrDie gets the new k8s go client
 func NewK8sSelfClientDoOrDie() *Client {
-	// For testing - return a mock client if LOCAL env is set
-	if os.Getenv("LOCAL") != "true" && os.Getenv("TEST") == "true" {
+	// For testing - return a mock client if TEST env is set
+	if os.Getenv("TEST") == "true" {
 		// Create a fake kubernetes client for testing
 		mockClient := fake.NewSimpleClientset()
 
