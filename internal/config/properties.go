@@ -25,14 +25,13 @@ type Properties struct {
 func init() {
 	logger := log.Logger(context.Background(), "config", "properties", "init")
 
-	// Check for LOCAL environment
-	if os.Getenv("LOCAL") != "" {
-		err := LoadProperties("LOCAL")
-		if err != nil {
-			logger.Error(err, "failed to load local properties")
-			panic(err)
+	// For testing mode - don't try to load from real configmap
+	if os.Getenv("TEST") == "true" {
+		logger.Info("Running in TEST mode, using default test properties")
+		Props = &Properties{
+			wavefrontAPITokenSecretName: "wavefront-api-token",
+			wavefrontAPIUrl:             "https://wavefront.example.com",
 		}
-		logger.Info("Loaded properties in init func for tests")
 		return
 	}
 

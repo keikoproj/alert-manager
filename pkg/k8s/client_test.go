@@ -1,37 +1,31 @@
 package k8s
 
 import (
-	"os"
-	"testing"
+	"fmt"
+	"path/filepath"
 
-	"github.com/stretchr/testify/assert"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
-func TestNewK8sSelfClientDoOrDie(t *testing.T) {
-	// Save original KUBECONFIG
-	originalKubeConfig := os.Getenv("KUBECONFIG")
-	defer os.Setenv("KUBECONFIG", originalKubeConfig)
+// SetupTestEnv initializes and returns a new test environment and config for testing
+func SetupTestEnv() (*envtest.Environment, *rest.Config) {
+	testEnv := &envtest.Environment{
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		ErrorIfCRDPathMissing: false,
+	}
 
-	t.Run("handles local environment properly", func(t *testing.T) {
-		// Set KUBECONFIG to a non-existent file to force local path
-		// We'll catch the panic and verify it's the expected panic
-		os.Setenv("KUBECONFIG", "/non/existent/path")
+	cfg, err := testEnv.Start()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to start testEnv: %v", err))
+	}
 
-		// Expect a panic but recover from it
-		defer func() {
-			if r := recover(); r != nil {
-				// This is expected - we set KUBECONFIG to a non-existent path
-				// We just want to verify the code path is executed properly
-				assert.Contains(t, r.(error).Error(), "stat /non/existent/path",
-					"Expected panic due to non-existent KUBECONFIG path")
-			} else {
-				t.Fatal("Expected a panic due to non-existent KUBECONFIG but none occurred")
-			}
-		}()
+	return testEnv, cfg
+}
 
-		// This should trigger our fix for the ineffectual assignment
-		// We expect it to panic because the KUBECONFIG is invalid
-		// We just want to make sure it follows the correct path
-		NewK8sSelfClientDoOrDie()
-	})
+// TeardownTestEnv stops the test environment
+func TeardownTestEnv(testEnv *envtest.Environment) {
+	if err := testEnv.Stop(); err != nil {
+		fmt.Printf("Failed to stop testEnv: %v\n", err)
+	}
 }

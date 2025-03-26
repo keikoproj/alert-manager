@@ -13,18 +13,9 @@ ENVTEST_K8S_VERSION = 1.32.0
 CONTROLLER_TOOLS_VERSION ?= v0.17.2
 KUSTOMIZE_VERSION ?= v3.8.7
 
-KUBECONFIG                  ?= $(HOME)/.kube/config
-LOCAL                       ?= true
-RESTRICTED_POLICY_RESOURCES ?= policy-resource
-RESTRICTED_S3_RESOURCES     ?= s3-resource
-AWS_ACCOUNT_ID              ?= 123456789012
-AWS_REGION                  ?= us-west-2
-CLUSTER_NAME                ?= k8s_test_keiko
-CLUSTER_OIDC_ISSUER_URL     ?= https://google.com/OIDC
+ENVTEST ?= $(LOCALBIN)/setup-envtest
 
 LOCALBIN ?= $(shell pwd)/bin
-
-ENVTEST ?= $(LOCALBIN)/setup-envtest
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -84,16 +75,8 @@ ENVTEST_ASSETS_DIR=$(LOCALBIN)
 
 test: mock manifests generate fmt vet envtest ## Run tests.
 	@echo "Running tests with envtest..."
-	KUBECONFIG=$(KUBECONFIG) \
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
-	LOCAL=$(LOCAL) \
-	RESTRICTED_POLICY_RESOURCES=$(RESTRICTED_POLICY_RESOURCES) \
-	RESTRICTED_S3_RESOURCES=$(RESTRICTED_S3_RESOURCES) \
-	AWS_ACCOUNT_ID=$(AWS_ACCOUNT_ID) \
-	AWS_REGION=$(AWS_REGION) \
-	CLUSTER_NAME=$(CLUSTER_NAME) \
-	CLUSTER_OIDC_ISSUER_URL="$(CLUSTER_OIDC_ISSUER_URL)" \
-	DEFAULT_TRUST_POLICY=$(DEFAULT_TRUST_POLICY) \
+	TEST=true \
 	go test ./... -coverprofile cover.out
 
 ##@ Build
