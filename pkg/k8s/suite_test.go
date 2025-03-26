@@ -16,6 +16,7 @@ limitations under the License.
 package k8s
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -50,10 +51,14 @@ func TestAPIs(t *testing.T) {
 var _ = BeforeSuite(func() {
 	//logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
 
+	// Set TEST=true environment variable for our client implementation
+	os.Setenv("TEST", "true")
+
 	By("bootstrapping test environment")
 
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		ErrorIfCRDPathMissing: false,
 	}
 
 	var err error
@@ -61,8 +66,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
 
-	err = managerv1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
+	// Set KUBEBUILDER_ASSETS to let our client know we're using envtest
+	if testEnv.BinaryAssetsDirectory != "" {
+		os.Setenv("KUBEBUILDER_ASSETS", testEnv.BinaryAssetsDirectory)
+	}
 
 	err = managerv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
@@ -72,6 +79,7 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(k8sClient).ToNot(BeNil())
+
 	c, err := kubernetes.NewForConfig(cfg)
 	Expect(err).ToNot(HaveOccurred())
 	cl = Client{
@@ -79,10 +87,20 @@ var _ = BeforeSuite(func() {
 		runtimeClient: k8sClient,
 	}
 	Expect(cl).ToNot(BeNil())
+
+	// Now also verify that our NewK8sSelfClientDoOrDie works properly
+	// with the environment we've set up
+	testClient := NewK8sSelfClientDoOrDie()
+	Expect(testClient).ToNot(BeNil())
+	Expect(testClient.Cl).ToNot(BeNil())
 })
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
+	// Clean up environment variables
+	os.Unsetenv("TEST")
+	os.Unsetenv("KUBEBUILDER_ASSETS")
+
 	err := testEnv.Stop()
 	Expect(err).ToNot(HaveOccurred())
 })

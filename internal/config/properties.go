@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/keikoproj/alert-manager/internal/config/common"
 	"github.com/keikoproj/alert-manager/pkg/k8s"
@@ -23,6 +24,16 @@ type Properties struct {
 
 func init() {
 	logger := log.Logger(context.Background(), "config", "properties", "init")
+
+	// For testing mode - don't try to load from real configmap
+	if os.Getenv("TEST") == "true" {
+		logger.Info("Running in TEST mode, using default test properties")
+		Props = &Properties{
+			wavefrontAPITokenSecretName: "wavefront-api-token",
+			wavefrontAPIUrl:             "https://wavefront.example.com",
+		}
+		return
+	}
 
 	res := k8s.NewK8sSelfClientDoOrDie().GetConfigMap(context.Background(), common.AlertManagerNamespaceName, common.AlertManagerConfigMapName)
 
