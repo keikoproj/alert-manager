@@ -5,58 +5,6 @@ metadata:
   name: role
 rules:
 - apiGroups:
-  - alertmanager.keikoproj.io
-  resources:
-  - alertsconfigs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - alertmanager.keikoproj.io
-  resources:
-  - alertsconfigs/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - alertmanager.keikoproj.io
-  resources:
-  - alertsconfigs/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - alertmanager.keikoproj.io
-  resources:
-  - wavefrontalerts
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - alertmanager.keikoproj.io
-  resources:
-  - wavefrontalerts/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - alertmanager.keikoproj.io
-  resources:
-  - wavefrontalerts/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
   - ""
   resources:
   - events
@@ -75,3 +23,32 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - alertmanager.keikoproj.io
+  resources:
+  - alertsconfigs
+  - wavefrontalerts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - alertmanager.keikoproj.io
+  resources:
+  - alertsconfigs/finalizers
+  - wavefrontalerts/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - alertmanager.keikoproj.io
+  resources:
+  - alertsconfigs/status
+  - wavefrontalerts/status
+  verbs:
+  - get
+  - patch
+  - update
