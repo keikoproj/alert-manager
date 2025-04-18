@@ -1,5 +1,5 @@
 /*
-Copyright 2021.
+Copyright 2025 Keikoproj authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 
 // Package v1alpha1 contains API Schema definitions for the alertmanager v1alpha1 API group
 // +kubebuilder:object:generate=true
