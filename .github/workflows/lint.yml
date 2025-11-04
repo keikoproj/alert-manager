@@ -27,12 +27,12 @@ jobs:
     continue-on-error: true
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: 1.24.x
+          go-version: 1.25.x
           cache: true
 
       # Generate mocks first to avoid linting errors
@@ -53,7 +53,7 @@ jobs:
       - name: Run golangci-lint (Non-blocking)
         id: lint
         continue-on-error: true
-        uses: golangci/golangci-lint-action@v7
+        uses: golangci/golangci-lint-action@v8
         with:
           version: latest
           args: --timeout=5m --issues-exit-code=0
@@ -65,7 +65,7 @@ jobs:
     continue-on-error: true
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         
       - name: List security issues
         uses: securego/gosec@master
@@ -77,12 +77,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: 1.24.x
+          go-version: 1.25.x
           
       - name: Check License Headers
         run: |
