@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-
 //go:generate mockgen -destination=mocks/mock_wavefrontiface.go -package=mock_wavefront github.com/keikoproj/alert-manager/pkg/wavefront Interface
 
 package controllers
