@@ -127,7 +127,7 @@ For more examples and detailed usage information, see the [Quick Start Guide](do
 
 | alert-manager Version | Kubernetes Version | Notable Features | Go Version |
 |-----------------------|--------------------|------------------|------------|
-| current (master)      | 1.28+              | Go 1.24 upgrade  | 1.24+      |
+| current (master)      | 1.28+              | Go 1.25 upgrade  | 1.25+      |
 | v0.5.0                | 1.22+              | Improved scalability, enhanced status reporting | 1.19+ |
 | v0.4.0                | 1.20 - 1.24        | Template alerting, Splunk integration (beta) | 1.18+ | 
 | v0.3.0                | 1.18 - 1.22        | Multi-cluster support, alert batching | 1.16+ |
