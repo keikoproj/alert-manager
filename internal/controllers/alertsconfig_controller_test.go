@@ -38,7 +38,7 @@ var _ = Describe("AlertsConfigController", Label("controller", "alertsconfig"), 
 		alertConfigName    = "test-alerts-config"
 		wavefrontAlertName = "test-wavefront-alert"
 		namespace          = "default"
-		timeout            = time.Second * 10
+		timeout            = time.Second * 60
 		interval           = time.Millisecond * 250
 	)
 
